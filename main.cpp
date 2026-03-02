@@ -1,277 +1,272 @@
-#include "CameraCalibration.h"
-#include "ChessboardDetection.h"
-#include "AugmentedReality.h"
-#include "FeatureDetection.h"
-#include "ModelLoader.h"
-#include <opencv2/opencv.hpp>
-#include <vector>
+/*
+  main.cpp
+  CS 5330 - Project 4: Calibration and Augmented Reality
+
+  Key bindings:
+    s       save current frame for calibration
+    c       run calibration (need >= 5 frames)
+    w       write calibration to file
+    a       toggle 3D axes display
+    v       toggle virtual castle display
+    o       toggle OBJ model display
+    p       print current pose (rotation + translation)
+    f       toggle ORB feature detection
+    h       toggle Harris corner detection
+    m       toggle ArUco marker mode (vs chessboard)
+    x       save screenshot
+    q/ESC   quit
+*/
 #include <iostream>
-#include <sstream>
-#include <fstream>
-#include <thread>
-#include <atomic>
-#include <regex>
+#include <string>
+#include <vector>
+#include <filesystem>
 
-std::atomic<char> keyPressed(' ');
-std::atomic<bool> displayVirtualObjectPersistent(false);
-std::atomic<bool> displayFeatures(false);
+#include <opencv2/opencv.hpp>
 
-void captureKeyInput() {
-    char key;
-    while (true) {
-        std::cin >> key;
-        keyPressed.store(key);
-        if (key == 'q') break;
+#include "chessboarddetection.h"
+#include "cameracalibration.h"
+#include "augmentedreality.h"
+#include "featuredetection.h"
+#include "modelloader.h"
+
+namespace fs = std::filesystem;
+
+// ─── Configuration ─────────────────────────────────────────────────────────
+static const cv::Size PATTERN_SIZE(9, 6);  // 9 cols x 6 rows of internal corners
+static const std::string CALIB_FILE = "calibration.yml";
+static const std::string MODEL_FILE = "Lowpoly_tree_sample2.obj";
+
+// ─── Main ──────────────────────────────────────────────────────────────────
+int main(int argc, char *argv[])
+{
+    // ── Open video source ──
+    cv::VideoCapture cap;
+    if (argc > 1) {
+        // If argument given, try as video file or image
+        cap.open(argv[1]);
+    } else {
+        cap.open(0); // webcam
     }
-}
-
-bool readCalibrationData(const std::string& filename, cv::Mat& cameraMatrix, cv::Mat& distCoefficients) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open file " << filename << std::endl;
-        return false;
-    }
-
-    std::string line;
-    std::regex number_regex("[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?");
-    std::smatch match;
-
-    while (std::getline(file, line)) {
-        if (line.find("Camera Matrix:") != std::string::npos) {
-            for (int i = 0; i < 3; ++i) {
-                std::getline(file, line);
-                int j = 0;
-                while (std::regex_search(line, match, number_regex) && j < 3) {
-                    cameraMatrix.at<double>(i, j) = std::stod(match.str(0));
-                    line = match.suffix().str();
-                    j++;
-                }
-            }
-        }
-        else if (line.find("Distortion Coefficients:") != std::string::npos) {
-            for (int i = 0; i < 5; ++i) {
-                std::getline(file, line);
-                if (std::regex_search(line, match, number_regex)) {
-                    distCoefficients.at<double>(i, 0) = std::stod(match.str(0));
-                }
-            }
-        }
-    }
-    file.close();
-    return true;
-}
-
-std::vector<cv::Point3f> defineAxesPoints() {
-    std::vector<cv::Point3f> axesPoints;
-    axesPoints.push_back(cv::Point3f(0, 0, 0));
-    axesPoints.push_back(cv::Point3f(3, 0, 0));
-    axesPoints.push_back(cv::Point3f(0, 3, 0));
-    axesPoints.push_back(cv::Point3f(0, 0, -3));
-    return axesPoints;
-}
-
-bool isInsideRectangle(const cv::Point2f& p, const std::vector<cv::Point2f>& rect) {
-    double area1 = cv::contourArea(rect);
-    double area2 = cv::contourArea(std::vector<cv::Point2f>{rect[0], rect[1], p}) +
-        cv::contourArea(std::vector<cv::Point2f>{rect[1], rect[2], p}) +
-        cv::contourArea(std::vector<cv::Point2f>{rect[2], rect[3], p}) +
-        cv::contourArea(std::vector<cv::Point2f>{rect[3], rect[0], p});
-    return std::abs(area1 - area2) < 1e-3;
-}
-
-void drawVirtualObject(cv::Mat& frame, const cv::Mat& cameraMatrix, const cv::Mat& distCoefficients, const cv::Mat& rvec, const cv::Mat& tvec, const std::vector<cv::Point2f>& chessboardCorners, const cv::Size& patternSize) {
-    std::vector<cv::Point2f> chessboardBoundary = {
-        chessboardCorners.front(),
-        chessboardCorners[patternSize.width - 1],
-        chessboardCorners.back(),
-        chessboardCorners[patternSize.width * (patternSize.height - 1)]
-    };
-
-    float baseSize = 0.5f;
-    float height = 0.5f;
-
-    float boardCenterX = patternSize.width / 2.0f - 0.5f;
-    float boardCenterY = -(patternSize.height / 2.0f - 0.5f);
-
-    float offsetX = boardCenterX;
-    float offsetY = boardCenterY;
-
-    std::vector<cv::Point3f> objectPoints = {
-        cv::Point3f(-0.5f + offsetX, -0.5f + offsetY, 0),
-        cv::Point3f(0.5f + offsetX, -0.5f + offsetY, 0),
-        cv::Point3f(0.5f + offsetX, 0.5f + offsetY, 0),
-        cv::Point3f(-0.5f + offsetX, 0.5f + offsetY, 0),
-        cv::Point3f(offsetX, offsetY, height)
-    };
-
-    std::vector<cv::Point2f> imagePoints;
-    cv::projectPoints(objectPoints, rvec, tvec, cameraMatrix, distCoefficients, imagePoints);
-
-    for (const auto& point : imagePoints) {
-        if (!isInsideRectangle(point, chessboardBoundary)) {
-            baseSize *= 0.75f;
-            height *= 0.75f;
-            objectPoints = {
-                cv::Point3f(-baseSize + offsetX, -baseSize + offsetY, 0),
-                cv::Point3f(baseSize + offsetX, -baseSize + offsetY, 0),
-                cv::Point3f(baseSize + offsetX, baseSize + offsetY, 0),
-                cv::Point3f(-baseSize + offsetX, baseSize + offsetY, 0),
-                cv::Point3f(offsetX, offsetY, height)
-            };
-            cv::projectPoints(objectPoints, rvec, tvec, cameraMatrix, distCoefficients, imagePoints);
-            break;
-        }
-    }
-
-    for (int i = 0; i < 4; ++i) {
-        cv::line(frame, imagePoints[i], imagePoints[(i + 1) % 4], cv::Scalar(0, 255, 0), 5);
-        cv::line(frame, imagePoints[i], imagePoints[4], cv::Scalar(0, 255, 0), 5);
-    }
-
-    for (int i = 0; i < 4; ++i) {
-        cv::line(frame, imagePoints[i], imagePoints[(i + 1) % 4], cv::Scalar(0, 0, 255), 10);
-    }
-}
-
-int main() {
-    cv::VideoCapture cap(0);
     if (!cap.isOpened()) {
-        std::cerr << "Error: Could not open camera." << std::endl;
-        return -1;
+        std::cerr << "Error: cannot open video source.\n";
+        return 1;
     }
 
-    std::thread keyInputThread(captureKeyInput);
-
-    cv::Size patternSize(9, 6);
-    std::vector<cv::Point2f> corner_set;
-    std::vector<std::vector<cv::Point2f>> corner_list;
-    std::vector<std::vector<cv::Vec3f>> point_list;
-    cv::Mat frame, cameraMatrix = cv::Mat::eye(3, 3, CV_64F), distCoefficients = cv::Mat::zeros(8, 1, CV_64F);
-    bool foundPreviously = false;
-
-    // Use relative path for calibration data
-    std::string calibrationFilePath = "calibration_data.csv";
-    if (!readCalibrationData(calibrationFilePath, cameraMatrix, distCoefficients)) {
-        std::cerr << "Warning: Could not read calibration data. Starting fresh." << std::endl;
+    // ── Load existing calibration if available ──
+    cv::Mat cameraMatrix, distCoeffs;
+    bool calibrated = loadCalibration(CALIB_FILE, cameraMatrix, distCoeffs);
+    if (!calibrated) {
+        cameraMatrix = cv::Mat::eye(3, 3, CV_64F);
+        distCoeffs = cv::Mat::zeros(5, 1, CV_64F);
+        std::cout << "No calibration found. Start by pressing 's' to save frames, then 'c' to calibrate.\n";
     }
 
-    // Load 3D model (relative path)
-    std::vector<Vertex> vertices;
-    std::vector<TextureCoord> textures;
-    std::vector<Normal> normals;
-    std::vector<Face> faces;
-    std::string modelPath = "Lowpoly_tree_sample2.obj";
-    bool modelLoaded = loadOBJModel(modelPath, vertices, textures, normals, faces);
+    // ── Load OBJ model (optional) ──
+    std::vector<Vertex> objVertices;
+    std::vector<TextureCoord> objTextures;
+    std::vector<Normal> objNormals;
+    std::vector<Face> objFaces;
+    bool modelLoaded = false;
+    if (fs::exists(MODEL_FILE)) {
+        modelLoaded = loadOBJModel(MODEL_FILE, objVertices, objTextures, objNormals, objFaces);
+        if (modelLoaded)
+            std::cout << "OBJ model loaded: " << objVertices.size() << " vertices.\n";
+    }
 
-    bool display3DAxes = false;
-    bool displayVirtualObject = false;
+    // ── Calibration data ──
+    std::vector<std::vector<cv::Point2f>> cornerList;
+    std::vector<std::vector<cv::Vec3f>> pointList;
+    std::vector<cv::Vec3f> worldPoints = generateChessboardPoints(PATTERN_SIZE);
 
-    std::cout << "Camera Matrix:\n" << cameraMatrix << "\n";
-    std::cout << "Distortion Coefficients:\n" << distCoefficients << "\n";
-    std::cout << "Press 's' to save calibration image.\nPress 'c' to perform calibration.\nPress 'p' to print board's pose.\nPress 'd' to display the virtual object.\nPress 'f' for robust features.\nPress 'q' to exit.\n";
+    // ── State flags ──
+    bool showAxes     = false;
+    bool showCastle   = false;
+    bool showOBJ      = false;
+    bool showORB      = false;
+    bool showHarris   = false;
+    bool useAruco     = false;
+    int  saveCounter  = 0;
+    double lastRms    = -1;
 
-    std::vector<cv::Point3f> axesPoints = defineAxesPoints();
+    // ── Pose ──
     cv::Mat rvec, tvec;
-    bool solvePnP_success = false;
-    std::vector<cv::Vec3f> objectPoints;
+    bool poseValid = false;
 
+    std::cout << "\n";
+    std::cout << "=== CS 5330 Project 4: Calibration & AR ===\n";
+    std::cout << "Keys:\n";
+    std::cout << "  s   save calibration frame\n";
+    std::cout << "  c   run calibration\n";
+    std::cout << "  w   write calibration to file\n";
+    std::cout << "  a   toggle 3D axes\n";
+    std::cout << "  v   toggle virtual castle\n";
+    std::cout << "  o   toggle OBJ model\n";
+    std::cout << "  p   print pose\n";
+    std::cout << "  f   toggle ORB features\n";
+    std::cout << "  h   toggle Harris corners\n";
+    std::cout << "  m   toggle ArUco mode\n";
+    std::cout << "  x   save screenshot\n";
+    std::cout << "  q   quit\n\n";
+
+    // ─── Main loop ─────────────────────────────────────────────────────────
     while (true) {
+        cv::Mat frame;
         cap >> frame;
         if (frame.empty()) break;
 
-        bool found = findChessboardCorners(frame, patternSize, corner_set);
-        if (found) {
-            objectPoints.clear();
-            for (int i = 0; i < patternSize.height; ++i) {
-                for (int j = 0; j < patternSize.width; ++j) {
-                    objectPoints.push_back(cv::Vec3f(j, -i, 0.0f));
+        std::vector<cv::Point2f> corners;
+        bool targetFound = false;
+
+        // ── Detect target ──
+        if (useAruco) {
+            std::vector<std::vector<cv::Point2f>> markerCorners;
+            std::vector<int> markerIds;
+            targetFound = detectAruco(frame, markerCorners, markerIds);
+
+            // Use first detected marker for pose estimation
+            if (targetFound && !markerIds.empty()) {
+                // ArUco marker has 4 corners
+                corners = markerCorners[0];
+
+                // World points for a single ArUco marker (1x1 square)
+                std::vector<cv::Point3f> markerWorld = {
+                    {0, 0, 0}, {1, 0, 0}, {1, -1, 0}, {0, -1, 0}
+                };
+
+                if (calibrated) {
+                    poseValid = cv::solvePnP(markerWorld, corners,
+                                             cameraMatrix, distCoeffs, rvec, tvec);
                 }
             }
+        } else {
+            targetFound = detectChessboard(frame, PATTERN_SIZE, corners);
 
-            solvePnP_success = cv::solvePnP(objectPoints, corner_set, cameraMatrix, distCoefficients, rvec, tvec);
-            if (!foundPreviously) {
-                std::cout << "Number of corners found: " << corner_set.size() << std::endl;
+            if (targetFound && calibrated) {
+                poseValid = cv::solvePnP(worldPoints, corners,
+                                         cameraMatrix, distCoeffs, rvec, tvec);
             }
-            foundPreviously = true;
-        }
-        else {
-            foundPreviously = false;
         }
 
-        if (found && display3DAxes && solvePnP_success) {
-            std::vector<cv::Point2f> imagePoints;
-            cv::projectPoints(axesPoints, rvec, tvec, cameraMatrix, distCoefficients, imagePoints);
-            cv::line(frame, imagePoints[0], imagePoints[1], cv::Scalar(0, 0, 255), 3);
-            cv::line(frame, imagePoints[0], imagePoints[2], cv::Scalar(0, 255, 0), 3);
-            cv::line(frame, imagePoints[0], imagePoints[3], cv::Scalar(255, 0, 0), 3);
-        }
+        // ── AR overlays (only when pose is valid) ──
+        if (targetFound && poseValid && calibrated) {
+            if (showAxes) {
+                draw3DAxes(frame, cameraMatrix, distCoeffs, rvec, tvec);
+            }
 
-        if (found && displayVirtualObject && solvePnP_success && modelLoaded) {
-            std::vector<cv::Point2f> modelImagePoints;
-            for (const Vertex& vertex : vertices) {
-                std::vector<cv::Point3f> singlePoint = { cv::Point3f(vertex.x, vertex.y, vertex.z) };
-                std::vector<cv::Point2f> projectedPoint;
-                cv::projectPoints(singlePoint, rvec, tvec, cameraMatrix, distCoefficients, projectedPoint);
-                modelImagePoints.push_back(projectedPoint[0]);
+            if (!useAruco) {
+                drawOutsideCorners(frame, cameraMatrix, distCoeffs, rvec, tvec, PATTERN_SIZE);
             }
-            for (const auto& point : modelImagePoints) {
-                cv::circle(frame, point, 2, cv::Scalar(0, 255, 0), -1);
+
+            if (showCastle && !useAruco) {
+                drawCastle(frame, cameraMatrix, distCoeffs, rvec, tvec, PATTERN_SIZE);
             }
-            for (const auto& face : faces) {
-                for (size_t i = 0; i < face.vertexIndices.size(); i++) {
-                    cv::Point2f p1 = modelImagePoints[face.vertexIndices[i] - 1];
-                    cv::Point2f p2 = modelImagePoints[face.vertexIndices[(i + 1) % face.vertexIndices.size()] - 1];
-                    cv::line(frame, p1, p2, cv::Scalar(255, 0, 0), 1);
+
+            if (showOBJ && modelLoaded) {
+                // Project OBJ model vertices
+                std::vector<cv::Point2f> imgPts;
+                for (auto &v : objVertices) {
+                    std::vector<cv::Point3f> pt3 = {{v.x, v.y, v.z}};
+                    std::vector<cv::Point2f> pt2;
+                    cv::projectPoints(pt3, rvec, tvec, cameraMatrix, distCoeffs, pt2);
+                    imgPts.push_back(pt2[0]);
                 }
-            }
-        }
-
-        char key = keyPressed.load();
-        if (key != ' ') {
-            if (key == 's' && found) {
-                corner_list.push_back(corner_set);
-                std::vector<cv::Vec3f> point_set;
-                for (int i = 0; i < patternSize.height; ++i) {
-                    for (int j = 0; j < patternSize.width; ++j) {
-                        point_set.push_back(cv::Vec3f(j, -i, 0.0f));
+                // Draw edges
+                for (auto &face : objFaces) {
+                    for (size_t i = 0; i < face.vertexIndices.size(); i++) {
+                        int a = face.vertexIndices[i] - 1;
+                        int b = face.vertexIndices[(i + 1) % face.vertexIndices.size()] - 1;
+                        if (a >= 0 && a < (int)imgPts.size() && b >= 0 && b < (int)imgPts.size())
+                            cv::line(frame, imgPts[a], imgPts[b], cv::Scalar(0, 180, 0), 1);
                     }
                 }
-                point_list.push_back(point_set);
-                std::cout << "Saved calibration image with " << corner_set.size() << " corners." << std::endl;
             }
-            else if (key == 'c') {
-                if (corner_list.size() >= 5) {
-                    std::vector<cv::Mat> rvecs, tvecs;
-                    double reProjectionError = cv::calibrateCamera(point_list, corner_list, frame.size(), cameraMatrix, distCoefficients, rvecs, tvecs, cv::CALIB_FIX_ASPECT_RATIO);
-                    std::cout << "Calibration done with re-projection error: " << reProjectionError << std::endl;
-                    saveCalibrationData(calibrationFilePath, cameraMatrix, distCoefficients, reProjectionError);
-                }
-                else {
-                    std::cerr << "Not enough calibration images. Need at least 5." << std::endl;
-                }
+        }
+
+        // ── Feature detection overlays ──
+        if (showORB)    detectORBFeatures(frame);
+        if (showHarris) detectHarrisCorners(frame);
+
+        // ── HUD ──
+        std::string status = useAruco ? "ArUco" : "Chessboard";
+        status += targetFound ? " [FOUND]" : " [not found]";
+        status += "  Calib frames: " + std::to_string(cornerList.size());
+        if (calibrated) status += "  [CALIBRATED]";
+        cv::putText(frame, status, cv::Point(10, frame.rows - 15),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 255), 1);
+
+        cv::imshow("Project 4: Calibration & AR", frame);
+
+        // ── Key handling ──
+        int key = cv::waitKey(30) & 0xFF;
+
+        if (key == 'q' || key == 27) break;
+
+        else if (key == 's') {
+            if (targetFound && !useAruco) {
+                cornerList.push_back(corners);
+                pointList.push_back(worldPoints);
+                std::cout << "Saved calibration frame #" << cornerList.size()
+                          << " (" << corners.size() << " corners)\n";
+            } else if (!targetFound) {
+                std::cout << "Target not found — cannot save.\n";
+            } else {
+                std::cout << "Save calibration only works in chessboard mode.\n";
             }
-            if (key == 'd') displayVirtualObjectPersistent.store(true);
-            if (key == 'p') display3DAxes = !display3DAxes;
-            if (key == 'o') displayVirtualObject = !displayVirtualObject;
-            if (key == 'f') displayFeatures = !displayFeatures;
-
-            keyPressed.store(' ');
         }
-
-        if (displayVirtualObjectPersistent.load() && solvePnP_success && found) {
-            drawVirtualObject(frame, cameraMatrix, distCoefficients, rvec, tvec, corner_set, patternSize);
+        else if (key == 'c') {
+            lastRms = runCalibration(cornerList, pointList, frame.size(),
+                                     cameraMatrix, distCoeffs);
+            if (lastRms >= 0) calibrated = true;
         }
-
-        if (displayFeatures.load()) {
-            detectAndDrawFeatures(frame);
+        else if (key == 'w') {
+            if (calibrated) {
+                saveCalibration(CALIB_FILE, cameraMatrix, distCoeffs,
+                                lastRms >= 0 ? lastRms : 0);
+            } else {
+                std::cout << "Not calibrated yet.\n";
+            }
         }
-
-        cv::imshow("Frame", frame);
-        cv::waitKey(1);
-        if (key == 'q') break;
+        else if (key == 'a') {
+            showAxes = !showAxes;
+            std::cout << "3D Axes: " << (showAxes ? "ON" : "OFF") << "\n";
+        }
+        else if (key == 'v') {
+            showCastle = !showCastle;
+            std::cout << "Castle: " << (showCastle ? "ON" : "OFF") << "\n";
+        }
+        else if (key == 'o') {
+            showOBJ = !showOBJ;
+            std::cout << "OBJ model: " << (showOBJ ? "ON" : "OFF") << "\n";
+        }
+        else if (key == 'p') {
+            if (poseValid) {
+                std::cout << "Rotation:    " << rvec.t() << "\n";
+                std::cout << "Translation: " << tvec.t() << "\n";
+            } else {
+                std::cout << "No valid pose.\n";
+            }
+        }
+        else if (key == 'f') {
+            showORB = !showORB;
+            if (showORB) showHarris = false; // only one feature type at a time
+            std::cout << "ORB features: " << (showORB ? "ON" : "OFF") << "\n";
+        }
+        else if (key == 'h') {
+            showHarris = !showHarris;
+            if (showHarris) showORB = false;
+            std::cout << "Harris corners: " << (showHarris ? "ON" : "OFF") << "\n";
+        }
+        else if (key == 'm') {
+            useAruco = !useAruco;
+            std::cout << "Mode: " << (useAruco ? "ArUco markers" : "Chessboard") << "\n";
+        }
+        else if (key == 'x') {
+            std::string fname = "screenshot_" + std::to_string(saveCounter++) + ".png";
+            cv::imwrite(fname, frame);
+            std::cout << "Saved " << fname << "\n";
+        }
     }
 
-    if (keyInputThread.joinable()) keyInputThread.join();
     cap.release();
     cv::destroyAllWindows();
     return 0;
