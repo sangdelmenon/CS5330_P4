@@ -4,12 +4,11 @@ project(Project4 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# OpenCV with aruco module
 find_package(OpenCV REQUIRED COMPONENTS core imgproc highgui videoio imgcodecs calib3d objdetect)
 message(STATUS "OpenCV version: ${OpenCV_VERSION}")
 
-add_executable(Project4
-        main.cpp
+# Shared source files (everything except main entry points)
+set(COMMON_SOURCES
         chessboarddetection.cpp
         cameracalibration.cpp
         augmentedreality.cpp
@@ -17,5 +16,19 @@ add_executable(Project4
         modelloader.cpp
 )
 
+# CLI version
+add_executable(Project4
+        main.cpp
+        ${COMMON_SOURCES}
+)
 target_include_directories(Project4 PRIVATE ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(Project4 PRIVATE ${OpenCV_LIBS})
+
+# GUI version (OpenCV only, no Qt needed)
+add_executable(Project4_GUI
+        main_gui.cpp
+        gui_opencv.cpp
+        ${COMMON_SOURCES}
+)
+target_include_directories(Project4_GUI PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(Project4_GUI PRIVATE ${OpenCV_LIBS})
