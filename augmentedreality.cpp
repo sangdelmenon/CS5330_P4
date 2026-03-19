@@ -224,6 +224,7 @@ void drawCastle(cv::Mat &frame, const cv::Mat &cameraMatrix,
     }
 
     // ── 7. Gate archway on front wall (orange) ──
+
     {
         float gx = cx;
         float gy = cy + 1.5f; // front face
@@ -239,5 +240,52 @@ void drawCastle(cv::Mat &frame, const cv::Mat &cameraMatrix,
         };
         drawWireframe(frame, gatePts, gateEdges, cameraMatrix, distCoeffs, rvec, tvec,
                       cv::Scalar(0, 140, 255), 3); // orange
+    }
+}
+
+// ─── Extension: disguise the chessboard ────────────────────────────────────
+// Projects the outer boundary of the chessboard and fills it with a
+// semi-transparent green-screen colour so the board no longer looks like
+// a calibration target.  Uses a tiled checkerboard of two colours for a
+// more convincing replacement texture.
+void drawTargetDisguise(cv::Mat &frame, const cv::Mat &cameraMatrix,
+                        const cv::Mat &distCoeffs, const cv::Mat &rvec, const cv::Mat &tvec,
+                        const cv::Size &patternSize)
+{
+    const int cols = patternSize.width - 1;   // number of inner-corner columns
+    const int rows = patternSize.height - 1;  // number of inner-corner rows
+
+    // Project all inner corners + a one-square border
+    // We'll fill each cell individually so we can alternate the disguise colour.
+    // World coords: inner corners span (0,0) → (cols, -rows).
+    // We extend by one half-square on each side for the outer squares.
+    // For simplicity fill each board square with a projected quad.
+
+    // Choose two disguise colours (a mosaic of warm amber squares)
+    const cv::Scalar colA(0,  120, 255);   // orange
+    const cv::Scalar colB(0,   60, 180);   // dark orange
+
+    // Iterate over every square between inner corners
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < cols; c++) {
+            // 4 world corners of this square
+            std::vector<cv::Point3f> sq3d = {
+                {(float)c,       (float)(-r),       0.0f},
+                {(float)(c + 1), (float)(-r),       0.0f},
+                {(float)(c + 1), (float)(-r - 1),   0.0f},
+                {(float)c,       (float)(-r - 1),   0.0f}
+            };
+            std::vector<cv::Point2f> sq2d;
+            cv::projectPoints(sq3d, rvec, tvec, cameraMatrix, distCoeffs, sq2d);
+
+            std::vector<cv::Point> poly(4);
+            for (int i = 0; i < 4; i++)
+                poly[i] = cv::Point(cvRound(sq2d[i].x), cvRound(sq2d[i].y));
+
+            // Create overlay on a copy and blend
+            cv::Mat overlay = frame.clone();
+            cv::fillConvexPoly(overlay, poly, (r + c) % 2 == 0 ? colA : colB);
+            cv::addWeighted(overlay, 0.65, frame, 0.35, 0, frame);
+        }
     }
 }

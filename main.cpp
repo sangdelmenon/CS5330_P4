@@ -13,6 +13,9 @@
     f       toggle ORB feature detection
     h       toggle Harris corner detection
     m       toggle ArUco marker mode (vs chessboard)
+    d       toggle target disguise (hides the chessboard)
+    r       capture reference frame for ORB AR tracking
+    t       toggle ORB AR tracking mode (Uber Extension 2)
     x       save screenshot
     q/ESC   quit
 */
@@ -28,6 +31,7 @@
 #include "augmentedreality.h"
 #include "featuredetection.h"
 #include "modelloader.h"
+#include "orbtracking.h"
 
 namespace fs = std::filesystem;
 
@@ -85,8 +89,13 @@ int main(int argc, char *argv[])
     bool showORB      = false;
     bool showHarris   = false;
     bool useAruco     = false;
+    bool showDisguise = false;   // Extension: hide the chessboard
+    bool orbTrackMode = false;   // Uber Extension 2: ORB AR tracking
     int  saveCounter  = 0;
     double lastRms    = -1;
+
+    // ── ORB tracker (Uber Extension 2) ──
+    ORBTracker orbTracker;
 
     // ── Pose ──
     cv::Mat rvec, tvec;
@@ -105,6 +114,9 @@ int main(int argc, char *argv[])
     std::cout << "  f   toggle ORB features\n";
     std::cout << "  h   toggle Harris corners\n";
     std::cout << "  m   toggle ArUco mode\n";
+    std::cout << "  d   toggle target disguise\n";
+    std::cout << "  r   capture ORB reference frame\n";
+    std::cout << "  t   toggle ORB AR tracking\n";
     std::cout << "  x   save screenshot\n";
     std::cout << "  q   quit\n\n";
 
@@ -118,17 +130,16 @@ int main(int argc, char *argv[])
         bool targetFound = false;
 
         // ── Detect target ──
+        std::vector<std::vector<cv::Point2f>> allMarkerCorners;  // for multi-marker AR
+        std::vector<int>                      allMarkerIds;
+
         if (useAruco) {
-            std::vector<std::vector<cv::Point2f>> markerCorners;
-            std::vector<int> markerIds;
-            targetFound = detectAruco(frame, markerCorners, markerIds);
+            targetFound = detectAruco(frame, allMarkerCorners, allMarkerIds);
 
-            // Use first detected marker for pose estimation
-            if (targetFound && !markerIds.empty()) {
-                // ArUco marker has 4 corners
-                corners = markerCorners[0];
+            // Use first detected marker for the "primary" pose
+            if (targetFound && !allMarkerIds.empty()) {
+                corners = allMarkerCorners[0];
 
-                // World points for a single ArUco marker (1x1 square)
                 std::vector<cv::Point3f> markerWorld = {
                     {0, 0, 0}, {1, 0, 0}, {1, -1, 0}, {0, -1, 0}
                 };
@@ -149,6 +160,11 @@ int main(int argc, char *argv[])
 
         // ── AR overlays (only when pose is valid) ──
         if (targetFound && poseValid && calibrated) {
+            // Extension: disguise the chessboard before drawing overlays
+            if (showDisguise && !useAruco) {
+                drawTargetDisguise(frame, cameraMatrix, distCoeffs, rvec, tvec, PATTERN_SIZE);
+            }
+
             if (showAxes) {
                 draw3DAxes(frame, cameraMatrix, distCoeffs, rvec, tvec);
             }
@@ -180,6 +196,40 @@ int main(int argc, char *argv[])
                     }
                 }
             }
+
+            // Extension: multiple ArUco targets — draw axes on every detected marker
+            if (useAruco && calibrated && (int)allMarkerIds.size() > 1) {
+                std::vector<cv::Point3f> markerWorld = {
+                    {0, 0, 0}, {1, 0, 0}, {1, -1, 0}, {0, -1, 0}
+                };
+                for (int mi = 1; mi < (int)allMarkerIds.size(); mi++) {
+                    cv::Mat rv, tv;
+                    bool ok = cv::solvePnP(markerWorld, allMarkerCorners[mi],
+                                           cameraMatrix, distCoeffs, rv, tv);
+                    if (ok) {
+                        draw3DAxes(frame, cameraMatrix, distCoeffs, rv, tv);
+                    }
+                }
+            }
+        }
+
+        // ── Uber Extension 2: ORB AR tracking ──────────────────────────────
+        if (orbTrackMode && calibrated) {
+            cv::Mat orbRvec, orbTvec;
+            bool tracked = orbTracker.track(frame, cameraMatrix, distCoeffs,
+                                            orbRvec, orbTvec);
+            if (tracked) {
+                draw3DAxes(frame, cameraMatrix, distCoeffs, orbRvec, orbTvec);
+                drawCastle(frame, cameraMatrix, distCoeffs, orbRvec, orbTvec,
+                           cv::Size(5, 4));   // use a 5x4 grid to fit worldWidth/Height
+            }
+            // HUD for tracking state
+            std::string trackMsg = tracked
+                ? "ORB Track: " + std::to_string(orbTracker.lastInliers) + " inliers"
+                : (orbTracker.hasReference ? "ORB Track: searching..." : "ORB Track: no reference (press r)");
+            cv::putText(frame, trackMsg, cv::Point(10, 60),
+                        cv::FONT_HERSHEY_SIMPLEX, 0.55,
+                        tracked ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 100, 255), 2);
         }
 
         // ── Feature detection overlays ──
@@ -259,6 +309,20 @@ int main(int argc, char *argv[])
         else if (key == 'm') {
             useAruco = !useAruco;
             std::cout << "Mode: " << (useAruco ? "ArUco markers" : "Chessboard") << "\n";
+        }
+        else if (key == 'd') {
+            showDisguise = !showDisguise;
+            std::cout << "Target disguise: " << (showDisguise ? "ON" : "OFF") << "\n";
+        }
+        else if (key == 'r') {
+            // Capture current frame as ORB reference
+            orbTracker.setReference(frame);
+        }
+        else if (key == 't') {
+            orbTrackMode = !orbTrackMode;
+            std::cout << "ORB tracking mode: " << (orbTrackMode ? "ON" : "OFF") << "\n";
+            if (orbTrackMode && !orbTracker.hasReference)
+                std::cout << "  (press 'r' on your target to set reference image)\n";
         }
         else if (key == 'x') {
             std::string fname = "screenshot_" + std::to_string(saveCounter++) + ".png";

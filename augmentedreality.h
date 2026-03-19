@@ -27,3 +27,9 @@ void drawWireframe(cv::Mat &frame, const std::vector<cv::Point3f> &pts3d,
                    const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs,
                    const cv::Mat &rvec, const cv::Mat &tvec,
                    cv::Scalar colour, int thickness = 2);
+
+// Extension: disguise the chessboard by painting a semi-transparent coloured
+// overlay over the board area so it no longer looks like a calibration target.
+void drawTargetDisguise(cv::Mat &frame, const cv::Mat &cameraMatrix,
+                        const cv::Mat &distCoeffs, const cv::Mat &rvec, const cv::Mat &tvec,
+                        const cv::Size &patternSize);
