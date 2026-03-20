@@ -25,7 +25,10 @@ The entire codebase is complete and working. All seven tasks from the project sp
 **1.4 Extensions**
 
 * **ArUco Markers:** Implemented an alternative to the checkerboard using ArUco markers, which are asymmetrical and often more stable for AR tracking.
+* **Multiple ArUco AR:** In ArUco mode, 3D axes are drawn independently on every detected marker in the scene, not just the first one.
 * **OBJ Model Loading:** Wrote a custom model loader that reads and renders a 3D `.obj` file (`Lowpoly_tree_sample2.obj`) directly onto the target.
+* **Target Disguise:** Pressing `d` overlays a semi-transparent mosaic over the detected chessboard, painting over each square using its projected corners so the calibration target is hidden.
+* **ORB AR Tracking:** Press `r` to capture any flat surface as a reference image, then `t` to activate tracking. ORB features are matched each frame and `solvePnPRansac` estimates the camera pose — no printed checkerboard required.
 
 ---
 
@@ -68,6 +71,9 @@ Make sure `Lowpoly_tree_sample2.obj` is copied into the working directory if you
 | **f** | Toggle ORB feature detection |
 | **h** | Toggle Harris corner detection |
 | **m** | Toggle ArUco marker mode (switches away from chessboard) |
+| **d** | Toggle target disguise (paints over the chessboard) |
+| **r** | Capture current frame as ORB AR tracking reference |
+| **t** | Toggle ORB AR tracking mode |
 | **x** | Save a screenshot of the current OpenCV window |
 | **q / ESC** | Quit |
 
@@ -91,7 +97,11 @@ Use the `x` key to save screenshots directly from the program for the following:
 * **Target Detection:** A screenshot showing the checkerboard with the colorful OpenCV corners drawn on it.
 * **Axes & Outside Corners:** Press `a` to show the 3D axes and take a screenshot.
 * **Virtual Object:** Press `v` to show the wireframe castle. Take a screenshot from a cool angle.
-* **Extensions:** Press `o` to show the 3D tree OBJ model and take a screenshot. Also, switch to ArUco mode (`m`) and take a screenshot of AR working on the marker.
+* **Extensions:**
+  * Press `o` to show the 3D tree OBJ model and take a screenshot.
+  * Switch to ArUco mode (`m`) and take a screenshot of AR working on multiple markers simultaneously.
+  * Press `d` to activate the target disguise and take a screenshot showing the chessboard hidden.
+  * Press `r` to capture a reference frame, then `t` to activate ORB tracking and take a screenshot of AR on an unprinted surface.
 * **Features:** Press `f` for ORB features and take a screenshot. Press `h` for Harris corners and take a screenshot.
 
 **3.3 Observe Pose Translation (Task 4)**
@@ -135,8 +145,11 @@ The report needs to be submitted as a PDF. It must not include code. Here is exa
 **4.6 Extensions**
 
 * Show screenshots and briefly describe our extensions:
-1. The ArUco marker implementation.
-2. The custom OBJ file loader rendering the 3D tree.
+1. **ArUco Markers** — alternative target detection using ArUco markers.
+2. **Multiple ArUco AR** — independent 3D axes drawn on every detected marker simultaneously.
+3. **OBJ Model Loader** — custom parser rendering the 3D tree (`Lowpoly_tree_sample2.obj`) on the target.
+4. **Target Disguise** — semi-transparent mosaic overlay that hides the chessboard pattern in real time.
+5. **ORB AR Tracking** — markerless AR on any flat surface using ORB feature matching and `solvePnPRansac`.
 
 
 
@@ -155,5 +168,8 @@ The report needs to be submitted as a PDF. It must not include code. Here is exa
 | `augmentedreality.cpp/.h` | Contains all the drawing logic: 3D axes, outside corners, and the custom `drawCastle` wireframe rendering. |
 | `chessboarddetection.cpp/.h` | Wraps `findChessboardCorners` and the ArUco marker detection logic. |
 | `featuredetection.cpp/.h` | Implements Harris corner and ORB feature detection toggles. |
+| `orbtracking.cpp/.h` | ORB-based planar AR tracker — matches ORB descriptors against a captured reference frame and estimates pose via `solvePnPRansac`. |
 | `modelloader.cpp/.h` | Extension: parses `.obj` files and loads 3D vertices/faces to project onto the target. |
+| `gui_opencv.cpp/.h` | OpenCV-based GUI sidebar with buttons and sliders for all AR and calibration controls. |
+| `main_gui.cpp` | Entry point for the GUI application (`Project4_GUI`). |
 | `calibration.yml` | Generated at runtime: Stores the intrinsic camera matrix and distortion coefficients. |
