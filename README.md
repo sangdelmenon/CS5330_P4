@@ -72,6 +72,7 @@ The GUI provides sidebar controls for toggling all AR overlays, saving calibrati
 | 7. Robust features | ORB (`cv::ORB`) and Harris corners (`cv::cornerHarris`) displayed live |
 | Ext. Target disguise | Per-square projected quad fill using `cv::fillConvexPoly` + alpha blend |
 | Ext. Multiple ArUco AR | Independent `solvePnP` + `draw3DAxes` on every detected marker |
+| Ext. OBJ model | Custom parser renders `Lowpoly_tree_sample2.obj` (low-poly house) via `cv::line` on detected faces |
 | Ext. ORB AR tracking | `cv::BFMatcher` (Hamming, cross-check) + `solvePnPRansac` on a user-captured reference image |
 
 ## Project Files

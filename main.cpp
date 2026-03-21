@@ -126,6 +126,9 @@ int main(int argc, char *argv[])
         cap >> frame;
         if (frame.empty()) break;
 
+        // Keep a clean copy for ORB reference capture (before any overlays are drawn)
+        cv::Mat cleanFrame = frame.clone();
+
         std::vector<cv::Point2f> corners;
         bool targetFound = false;
 
@@ -315,8 +318,8 @@ int main(int argc, char *argv[])
             std::cout << "Target disguise: " << (showDisguise ? "ON" : "OFF") << "\n";
         }
         else if (key == 'r') {
-            // Capture current frame as ORB reference
-            orbTracker.setReference(frame);
+            // Capture clean (unmodified) frame as ORB reference
+            orbTracker.setReference(cleanFrame);
         }
         else if (key == 't') {
             orbTrackMode = !orbTrackMode;
@@ -325,7 +328,25 @@ int main(int argc, char *argv[])
                 std::cout << "  (press 'r' on your target to set reference image)\n";
         }
         else if (key == 'x') {
-            std::string fname = "screenshot_" + std::to_string(saveCounter++) + ".png";
+            // Build filename from active features
+            std::vector<std::string> parts;
+            if (useAruco)      parts.push_back("aruco");
+            if (showAxes)      parts.push_back("axes");
+            if (showCastle)    parts.push_back("castle");
+            if (showOBJ)       parts.push_back("obj");
+            if (showORB)       parts.push_back("orb_features");
+            if (showHarris)    parts.push_back("harris");
+            if (showDisguise)  parts.push_back("disguise");
+            if (orbTrackMode)  parts.push_back("orb_tracking");
+            if (parts.empty()) parts.push_back("detection");
+
+            std::string base;
+            for (size_t i = 0; i < parts.size(); i++) {
+                if (i > 0) base += "_";
+                base += parts[i];
+            }
+            fs::create_directories("screenshots");
+            std::string fname = "screenshots/" + base + "_" + std::to_string(saveCounter++) + ".png";
             cv::imwrite(fname, frame);
             std::cout << "Saved " << fname << "\n";
         }

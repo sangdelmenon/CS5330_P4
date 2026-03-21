@@ -32,7 +32,9 @@ bool detectAruco(cv::Mat &frame,
     cv::aruco::Dictionary dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
     cv::aruco::ArucoDetector detector(dictionary, detectorParams);
 
-    detector.detectMarkers(frame, markerCorners, markerIds);
+    cv::Mat gray;
+    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+    detector.detectMarkers(gray, markerCorners, markerIds);
 
     if (!markerIds.empty()) {
         cv::aruco::drawDetectedMarkers(frame, markerCorners, markerIds);

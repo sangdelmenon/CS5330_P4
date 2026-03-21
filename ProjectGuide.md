@@ -81,36 +81,227 @@ Make sure `Lowpoly_tree_sample2.obj` is copied into the working directory if you
 
 ## 3. Step-by-Step: Generate Report Data
 
-Follow these steps to generate all the data and screenshots needed for the report.
+> **IMPORTANT RULE FOR ALL SCREENSHOTS**
+> Each screenshot must show **only one feature at a time**. Before enabling a new feature, press the same key again to toggle the previous one **OFF**. The `v` (castle) key is easy to forget — make sure it is off before capturing feature detection shots.
+> Use `x` to save a screenshot at any point.
 
-**3.1 Run the Calibration (Tasks 1-3)**
+---
 
-1. Launch the program. Point the camera at the printed checkerboard.
-2. Move the camera around to view the board from different angles and distances.
-3. Press `s` to save a frame. Do this at least 5-10 times from clearly different perspectives.
-4. Press `c` to run the calibration. Look at the terminal output: it will print the camera matrix, distortion coefficients, and Re-projection Error. Write these numbers down for the report!
-5. Press `w` to save the `calibration.yml` file.
+**3.1 Rebuild After Code Fixes**
 
-**3.2 Capture Screenshots (Tasks 1, 5, 6, 7)**
-Use the `x` key to save screenshots directly from the program for the following:
+Before testing, rebuild the project to pick up the latest bug fixes (disguise coverage, ArUco grayscale, ORB reference):
 
-* **Target Detection:** A screenshot showing the checkerboard with the colorful OpenCV corners drawn on it.
-* **Axes & Outside Corners:** Press `a` to show the 3D axes and take a screenshot.
-* **Virtual Object:** Press `v` to show the wireframe castle. Take a screenshot from a cool angle.
-* **Extensions:**
-  * Press `o` to show the 3D tree OBJ model and take a screenshot.
-  * Switch to ArUco mode (`m`) and take a screenshot of AR working on multiple markers simultaneously.
-  * Press `d` to activate the target disguise and take a screenshot showing the chessboard hidden.
-  * Press `r` to capture a reference frame, then `t` to activate ORB tracking and take a screenshot of AR on an unprinted surface.
-* **Features:** Press `f` for ORB features and take a screenshot. Press `h` for Harris corners and take a screenshot.
+```bash
+cd cmake-build-debug && make
+```
 
-**3.3 Observe Pose Translation (Task 4)**
+---
 
-1. While the target is detected, press `p` in the terminal to print the Rotation (`rvec`) and Translation (`tvec`) matrices.
-2. Move the camera slowly to the left/right and up/down, pressing `p` to see how the numbers change. Take notes on this, as the report requires a description of how these values change as you move side-to-side.
+**3.2 Run the Calibration**
 
-**3.4 Record a Demo Video**
-Use a screen recorder (Cmd+Shift+5 on macOS) to capture a 30-60 second video. Show the calibration working, then turn on the virtual castle and move the camera around to prove that the object is anchored in 3D space. Upload this to YouTube (Unlisted) or Google Drive and get the link.
+1. Launch the program from `cmake-build-debug/`: `./Project4`
+2. Point the camera at the printed checkerboard in good lighting.
+3. Move the board (or camera) to different angles and distances.
+4. Press `s` to save a frame. Repeat **at least 5–10 times** from clearly different perspectives (tilted left, right, close, far, rotated).
+5. Press `c` to run calibration. The terminal will print:
+   - The **camera matrix** (3×3)
+   - The **distortion coefficients**
+   - The **re-projection error** (RMS). A value under 1.0 is excellent; under 3.0 is acceptable.
+   - Write these numbers down — they go into the report.
+6. Press `w` to save `calibration.yml`.
+
+---
+
+**3.3 Screenshot 1 — Target Detection**
+
+**Files needed:**
+- `ProjectFiles/checkerboard.png` — already in the repo. Print it on A4/letter paper and tape it to a flat rigid surface (cardboard, clipboard). Alternatively, display it full-screen on a tablet or phone held flat.
+
+**What to do:** With the board in view and no keys toggled on, the program automatically draws detected corners.
+
+**What you should see:** A rainbow-colored grid of circles drawn at every inner corner of the chessboard by `drawChessboardCorners`. Yellow dots appear at the four outer corners of the board. Nothing else is overlaid.
+
+**How to capture:** Just point the camera at the board and press `x`. No extra keys needed.
+
+---
+
+**3.4 Screenshot 2 — 3D Axes**
+
+**Files needed:**
+- Same printed/displayed `checkerboard.png` as above.
+
+**What to do:**
+1. Make sure `v`, `f`, `h`, `d`, `t` are all OFF.
+2. Press `a` to toggle axes ON.
+3. **Tilt the camera at roughly 45° to the board** so the Z axis (blue, pointing up) is clearly separated from X and Y. Looking straight down makes all axes appear flat.
+4. Press `x` to save.
+5. Press `a` again to toggle OFF.
+
+**What you should see:** Three colored lines shooting out from the top-left inner corner of the board — red (X along the board), green (Y along the board), blue (Z pointing up out of the board). Each line is 3 squares long with a letter label at the tip. All three axes must be clearly visible and distinct — if any axis collapses to a dot or short line, change the camera angle.
+
+---
+
+**3.5 Screenshot 3 — Virtual Castle**
+
+**Files needed:**
+- Same printed/displayed `checkerboard.png` as above.
+
+**What to do:**
+1. Make sure all other keys are OFF.
+2. Press `v` to toggle the castle ON.
+3. Tilt the camera to a 45-degree angle for a dramatic view and press `x`.
+4. Press `v` to toggle OFF.
+
+**What you should see:** A multi-colored wireframe castle floating on the board — blue outer walls, four red corner towers with yellow pyramid roofs, a green central keep with a magenta roof, an orange gate arch on the front, and a white flagpole with a red flag on top. All parts are anchored to the board and move correctly as the camera moves.
+
+---
+
+**3.6 Screenshot 4 — ORB Feature Detection**
+
+**Files needed:** None — ORB runs on whatever the camera sees. Having the chessboard in view gives good results but is not required.
+
+**What to do:**
+1. Make sure `v`, `h`, `a`, `d`, `t` are all OFF.
+2. Press `f` to toggle ORB features ON.
+3. Press `x` to save.
+4. Press `f` to toggle OFF.
+
+**What you should see:** Green circles with a line through them (keypoints) scattered densely across the frame wherever interesting texture exists — lots of them on the chessboard squares and on background objects. The top-left HUD should show "ORB: NNN key pts".
+
+---
+
+**3.7 Screenshot 5 — Harris Corner Detection**
+
+**Files needed:** None — Harris runs on whatever the camera sees. Having the chessboard in view works well since it has many sharp corners.
+
+**What to do:**
+1. Make sure `v`, `f`, `a`, `d`, `t` are all OFF.
+2. Press `h` to toggle Harris ON.
+3. Press `x` to save.
+4. Press `h` to toggle OFF.
+
+**What you should see:** Small colored dots at sharp corners in the image — concentrated heavily at the chessboard corner intersections and at edges of objects in the background. The top-left HUD shows "Harris: NN corners".
+
+---
+
+**3.8 Screenshot 6 — Target Disguise (Extension)**
+
+**Files needed:**
+- Same printed/displayed `checkerboard.png` as above. The chessboard must be fully detected before the disguise activates.
+- Must have rebuilt after the code fix (step 3.1).
+
+**What to do:**
+1. Make sure all other keys are OFF.
+2. Point camera at the chessboard so it is detected (you will see the corner grid drawn).
+3. Press `d` to toggle disguise ON.
+4. Press `x` to save.
+5. Press `d` to toggle OFF.
+
+**What you should see:** The entire chessboard is covered by an alternating orange / dark-orange semi-transparent mosaic. Every square — including the outer border squares — is filled with a colored quad projected in 3D. The black-and-white checkerboard pattern should no longer be visible underneath.
+
+---
+
+**3.9 Screenshot 7 — OBJ Model (Extension)**
+
+**Files needed:**
+- Same printed/displayed `checkerboard.png` as above.
+- `Lowpoly_tree_sample2.obj` — a low-poly house model. This file is already created and placed in both the project root and `cmake-build-debug/`.
+
+**File placement (already done):**
+The file `Lowpoly_tree_sample2.obj` is at:
+- `CS5330_P4/Lowpoly_tree_sample2.obj` (project root, for version control)
+- `CS5330_P4/cmake-build-debug/Lowpoly_tree_sample2.obj` (where the executable reads it)
+
+If you ever delete `cmake-build-debug/` and regenerate it, re-copy the file:
+```bash
+cp Lowpoly_tree_sample2.obj cmake-build-debug/
+```
+
+**Prerequisite:** Calibration must be loaded (`calibration.yml` present in `cmake-build-debug/`). Restart the program — on startup the terminal must print:
+```
+OBJ model loaded: 25 vertices.
+```
+If it does not print this line, the `.obj` file is missing from `cmake-build-debug/`.
+
+**What to do:**
+1. Make sure all other keys are OFF.
+2. Point camera at the chessboard.
+3. Press `o` to toggle OBJ model ON.
+4. Press `x` to save.
+5. Press `o` to toggle OFF.
+
+**What you should see:** A green wireframe low-poly tree projected and anchored on the chessboard target, rendered using `cv::line` connecting the OBJ faces.
+
+---
+
+**3.10 Screenshot 8 — ArUco Marker Mode (Extension)**
+
+**Files needed:**
+- An ArUco marker image from dictionary `DICT_6X6_250`. Generate one using the steps below.
+
+**How to get the ArUco marker:**
+1. Open this URL in a browser: `https://chev.me/arucogen/`
+2. Set **Dictionary** to `6x6 (250)`
+3. Set **Marker ID** to `0`
+4. Set **Marker size** to `200` mm
+5. Click **Download SVG** or right-click the marker image and save it.
+
+**How to display the marker:**
+- **Option A (recommended):** Open the saved image or the webpage on your phone/tablet and display it full-screen. Hold it flat and steady in front of the webcam.
+- **Option B:** Print the marker on paper. Make sure it prints with a white border around the black pattern — the white border is required for detection.
+
+**What to do:**
+1. Make sure all other keys are OFF.
+2. Press `m` to switch to ArUco mode. The HUD at the bottom will show "ArUco".
+3. Hold the marker in front of the camera.
+4. Press `a` to show axes on the detected marker.
+5. Press `x` to save.
+6. Press `a` then `m` to return to chessboard mode.
+
+**What you should see:** A green border drawn around the detected ArUco marker with its ID number labeled. 3D axes are projected at the marker's corner. If you have two markers in view at once, axes appear independently on each one.
+
+---
+
+**3.11 Screenshot 9 — ORB AR Tracking (Extension)**
+
+**Files needed:** No downloaded files. You need a **flat textured surface** — a book cover, a magazine, a poster on a wall, or even the desk surface. Avoid plain white walls or blank paper as they have no features for ORB to match.
+
+**What to do (order matters — do not skip steps):**
+1. Make sure all other keys are OFF and you are in chessboard mode (not ArUco).
+2. Point the camera at the flat textured surface.
+3. Press `r` — this captures the reference image. The terminal must print:
+   ```
+   ORB reference captured: XXXX keypoints.
+   ```
+   If the keypoint count is below ~200, the surface has too little texture. Move to a more detailed surface and press `r` again.
+4. Press `t` to enable tracking. The HUD will show `ORB Track: searching...` in orange.
+5. Move the camera slightly and back toward the same surface. When locked on, the HUD turns **green** and shows `ORB Track: NN inliers`.
+6. Press `x` to save **only when the HUD is green**. An orange HUD means it is still searching.
+7. Press `t` to toggle OFF.
+
+**What you should see:** 3D axes and the wireframe castle appear floating on the flat surface you captured — with no printed chessboard in view. The overlay tracks as you move the camera. The HUD shows a green inlier count when tracking is successful.
+
+---
+
+**3.12 Observe Pose Translation (Task 4)**
+
+1. Return to chessboard mode with the board detected.
+2. Press `p` — the terminal prints the current `rvec` (rotation) and `tvec` (translation).
+3. Move the camera slowly to the **right** and press `p` again. The X value in `tvec` should increase.
+4. Move the camera **up** and press `p`. The Y value in `tvec` should change.
+5. Move the camera **closer** and press `p`. The Z value in `tvec` should decrease (camera is closer to the board).
+6. Note these observations — the report requires a written description of how translation values change with camera movement.
+
+---
+
+**3.13 Record a Demo Video**
+
+Use macOS screen recorder (`Cmd+Shift+5`) to capture a 30–60 second clip:
+1. Show the chessboard being detected with corners drawn.
+2. Turn on the castle (`v`) and move the camera around to prove it stays anchored in 3D.
+3. Turn on the disguise (`d`) briefly to show the board being hidden.
+4. Switch to ORB tracking (`r` then `t`) and show the castle on a plain surface.
+5. Upload to YouTube (Unlisted) or Google Drive and save the link for the report.
 
 ---
 

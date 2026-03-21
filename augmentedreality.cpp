@@ -265,9 +265,11 @@ void drawTargetDisguise(cv::Mat &frame, const cv::Mat &cameraMatrix,
     const cv::Scalar colA(0,  120, 255);   // orange
     const cv::Scalar colB(0,   60, 180);   // dark orange
 
-    // Iterate over every square between inner corners
-    for (int r = 0; r < rows; r++) {
-        for (int c = 0; c < cols; c++) {
+    // Iterate over every square on the full board including the outer border.
+    // Inner corners span c=0..cols-1, r=0..rows-1; extending by 1 on each side
+    // covers the outer ring of squares that the printed board also has.
+    for (int r = -1; r <= rows; r++) {
+        for (int c = -1; c <= cols; c++) {
             // 4 world corners of this square
             std::vector<cv::Point3f> sq3d = {
                 {(float)c,       (float)(-r),       0.0f},
@@ -282,9 +284,9 @@ void drawTargetDisguise(cv::Mat &frame, const cv::Mat &cameraMatrix,
             for (int i = 0; i < 4; i++)
                 poly[i] = cv::Point(cvRound(sq2d[i].x), cvRound(sq2d[i].y));
 
-            // Create overlay on a copy and blend
+            // Use bitwise AND for correct alternating colour with negative indices
             cv::Mat overlay = frame.clone();
-            cv::fillConvexPoly(overlay, poly, (r + c) % 2 == 0 ? colA : colB);
+            cv::fillConvexPoly(overlay, poly, ((r + c) & 1) == 0 ? colA : colB);
             cv::addWeighted(overlay, 0.65, frame, 0.35, 0, frame);
         }
     }
