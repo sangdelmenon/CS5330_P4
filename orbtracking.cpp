@@ -20,7 +20,7 @@
 
 static cv::Ptr<cv::ORB> makeORB()
 {
-    return cv::ORB::create(1000);
+    return cv::ORB::create(2000);
 }
 
 // ─── setReference ──────────────────────────────────────────────────────────
@@ -72,25 +72,25 @@ bool ORBTracker::track(const cv::Mat &bgrFrame,
     cv::Mat frameDesc;
     orb->detectAndCompute(gray, cv::noArray(), frameKps, frameDesc);
 
-    if (frameDesc.empty() || (int)frameKps.size() < 10) return false;
+    if (frameDesc.empty() || (int)frameKps.size() < 15) return false;
 
     // Match: cross-check eliminates most false matches
     cv::BFMatcher matcher(cv::NORM_HAMMING, /*crossCheck=*/true);
     std::vector<cv::DMatch> matches;
     matcher.match(refDesc, frameDesc, matches);
 
-    if ((int)matches.size() < 10) return false;
+    if ((int)matches.size() < 15) return false;
 
-    // Keep matches within 2.5× the best distance (floor at 30 Hamming)
+    // Keep matches within 2.0× the best distance (floor at 30 Hamming)
     double minDist = 1e9;
     for (auto &m : matches) minDist = std::min(minDist, (double)m.distance);
-    double thresh = std::max(2.5 * minDist, 30.0);
+    double thresh = std::max(2.0 * minDist, 30.0);
 
     std::vector<cv::DMatch> good;
     for (auto &m : matches)
         if (m.distance <= thresh) good.push_back(m);
 
-    if ((int)good.size() < 8) return false;
+    if ((int)good.size() < 15) return false;
 
     // Build 3D ↔ 2D correspondences
     const int W = refGray.cols;
@@ -119,10 +119,10 @@ bool ORBTracker::track(const cv::Mat &bgrFrame,
                                  rvec, tvec,
                                  /*useExtrinsicGuess=*/false,
                                  /*iterationsCount=*/100,
-                                 /*reprojectionError=*/8.0f,
+                                 /*reprojectionError=*/5.0f,
                                  /*confidence=*/0.99,
                                  inliers);
 
     lastInliers = (int)inliers.size();
-    return ok && lastInliers >= 6;
+    return ok && lastInliers >= 12;
 }

@@ -20,27 +20,27 @@ void drawWireframe(cv::Mat &frame, const std::vector<cv::Point3f> &pts3d,
 
     for (auto &[a, b] : edges) {
         if (a >= 0 && a < (int)pts2d.size() && b >= 0 && b < (int)pts2d.size())
-            cv::line(frame, pts2d[a], pts2d[b], colour, thickness);
+            cv::line(frame, pts2d[a], pts2d[b], colour, thickness, cv::LINE_AA);
     }
 }
 
-// ─── Draw 3D coordinate axes (length = 3 squares) ─────────────────────────
+// ─── Draw 3D coordinate axes (length = 5 squares, arrowed) ───────────────
 void draw3DAxes(cv::Mat &frame, const cv::Mat &cameraMatrix,
                 const cv::Mat &distCoeffs, const cv::Mat &rvec, const cv::Mat &tvec)
 {
     std::vector<cv::Point3f> axes = {
-        {0, 0, 0}, {3, 0, 0}, {0, -3, 0}, {0, 0, -3}
+        {0, 0, 0}, {5, 0, 0}, {0, -5, 0}, {0, 0, -5}
     };
     std::vector<cv::Point2f> img;
     cv::projectPoints(axes, rvec, tvec, cameraMatrix, distCoeffs, img);
 
-    cv::line(frame, img[0], img[1], cv::Scalar(0, 0, 255), 3);   // X = red
-    cv::line(frame, img[0], img[2], cv::Scalar(0, 255, 0), 3);   // Y = green
-    cv::line(frame, img[0], img[3], cv::Scalar(255, 0, 0), 3);   // Z = blue
+    cv::arrowedLine(frame, img[0], img[1], cv::Scalar(0, 0, 255), 4, cv::LINE_AA, 0, 0.15);
+    cv::arrowedLine(frame, img[0], img[2], cv::Scalar(0, 255, 0), 4, cv::LINE_AA, 0, 0.15);
+    cv::arrowedLine(frame, img[0], img[3], cv::Scalar(255, 0, 0), 4, cv::LINE_AA, 0, 0.15);
 
-    cv::putText(frame, "X", img[1], cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,0,255), 2);
-    cv::putText(frame, "Y", img[2], cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,255,0), 2);
-    cv::putText(frame, "Z", img[3], cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255,0,0), 2);
+    cv::putText(frame, "X", img[1], cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,0,255), 2);
+    cv::putText(frame, "Y", img[2], cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,255,0), 2);
+    cv::putText(frame, "Z", img[3], cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255,0,0), 2);
 }
 
 // ─── Draw projected outside corners ────────────────────────────────────────
@@ -131,115 +131,210 @@ void drawCastle(cv::Mat &frame, const cv::Mat &cameraMatrix,
                 const cv::Mat &distCoeffs, const cv::Mat &rvec, const cv::Mat &tvec,
                 const cv::Size &patternSize)
 {
-    // Center the castle on the board
     float cx = (patternSize.width - 1) / 2.0f;
     float cy = -(patternSize.height - 1) / 2.0f;
 
-    // ── 1. Castle walls (blue) ──
+    // ── Dimensions ──────────────────────────────────────────────────────────
+    const float wallH     = 2.5f;
+    const float tw        = 1.2f;   // corner tower footprint
+    const float towerH    = 4.0f;   // corner tower height
+    const float keepW     = 2.0f;   // central keep footprint
+    const float keepH     = 2.0f;
+    const float keepBaseZ = -wallH;
+    const float keepWallH = 4.0f;
+
+    // ── Face-fill helpers ────────────────────────────────────────────────────
+    cv::Mat overlay = frame.clone();
+
+    auto fillQ = [&](cv::Point3f p0, cv::Point3f p1, cv::Point3f p2, cv::Point3f p3,
+                     cv::Scalar col) {
+        std::vector<cv::Point3f> pts3d = {p0, p1, p2, p3};
+        std::vector<cv::Point2f> pts2d;
+        cv::projectPoints(pts3d, rvec, tvec, cameraMatrix, distCoeffs, pts2d);
+        std::vector<cv::Point> poly(4);
+        for (int i = 0; i < 4; i++)
+            poly[i] = cv::Point(cvRound(pts2d[i].x), cvRound(pts2d[i].y));
+        cv::fillConvexPoly(overlay, poly, col);
+    };
+    auto fillT = [&](cv::Point3f p0, cv::Point3f p1, cv::Point3f p2, cv::Scalar col) {
+        std::vector<cv::Point3f> pts3d = {p0, p1, p2};
+        std::vector<cv::Point2f> pts2d;
+        cv::projectPoints(pts3d, rvec, tvec, cameraMatrix, distCoeffs, pts2d);
+        std::vector<cv::Point> poly(3);
+        for (int i = 0; i < 3; i++)
+            poly[i] = cv::Point(cvRound(pts2d[i].x), cvRound(pts2d[i].y));
+        cv::fillConvexPoly(overlay, poly, col);
+    };
+
+    // ── Color palette ────────────────────────────────────────────────────────
+    const cv::Scalar stoneWall  (100,  95,  85);
+    const cv::Scalar stoneTower (  75,  70,  65);
+    const cv::Scalar towerRoofC ( 30,  60, 160);
+    const cv::Scalar keepWallC  ( 35, 100,  35);
+    const cv::Scalar keepRoofC  (130,  20, 130);
+
+    // ── Fill pass ────────────────────────────────────────────────────────────
+    // 1. Main wall
     {
-        std::vector<cv::Point3f> pts;
-        std::vector<std::pair<int,int>> edges;
-        // Main wall: centered, 5 wide, 3 deep, 1.5 tall
-        addBox(pts, edges, cx - 2.5f, cy + 1.5f, 0, 5.0f, 3.0f, 1.5f);
-        drawWireframe(frame, pts, edges, cameraMatrix, distCoeffs, rvec, tvec,
-                      cv::Scalar(255, 100, 50), 2); // blue
+        float x = cx-2.5f, y = cy+1.5f, w = 5.0f, d = 3.0f, h = wallH;
+        fillQ({x,y,0},{x+w,y,0},{x+w,y,-h},{x,y,-h}, stoneWall);
+        fillQ({x,y-d,0},{x+w,y-d,0},{x+w,y-d,-h},{x,y-d,-h}, stoneWall);
+        fillQ({x,y,0},{x,y-d,0},{x,y-d,-h},{x,y,-h}, stoneWall);
+        fillQ({x+w,y,0},{x+w,y-d,0},{x+w,y-d,-h},{x+w,y,-h}, stoneWall);
+        fillQ({x,y,-h},{x+w,y,-h},{x+w,y-d,-h},{x,y-d,-h}, stoneWall);
     }
 
-    // ── 2. Four corner towers (red) ──
+    // 2. Corner towers
     {
-        float tw = 1.0f;  // tower width
-        float th = 2.5f;  // tower height
         float offsets[][2] = {
-            {cx - 2.5f, cy + 1.5f},           // front-left
-            {cx + 1.5f, cy + 1.5f},           // front-right
-            {cx + 1.5f, cy - 1.5f + tw},      // back-right
-            {cx - 2.5f, cy - 1.5f + tw}       // back-left
+            {cx-2.5f, cy+1.5f},
+            {cx+1.5f, cy+1.5f},
+            {cx+1.5f, cy-1.5f+tw},
+            {cx-2.5f, cy-1.5f+tw}
         };
-
         for (auto &off : offsets) {
-            std::vector<cv::Point3f> pts;
-            std::vector<std::pair<int,int>> edges;
-            addBox(pts, edges, off[0], off[1], 0, tw, tw, th);
-            drawWireframe(frame, pts, edges, cameraMatrix, distCoeffs, rvec, tvec,
-                          cv::Scalar(0, 0, 220), 2); // red
+            float x=off[0], y=off[1], h=towerH;
+            fillQ({x,y,0},{x+tw,y,0},{x+tw,y,-h},{x,y,-h}, stoneTower);
+            fillQ({x,y-tw,0},{x+tw,y-tw,0},{x+tw,y-tw,-h},{x,y-tw,-h}, stoneTower);
+            fillQ({x,y,0},{x,y-tw,0},{x,y-tw,-h},{x,y,-h}, stoneTower);
+            fillQ({x+tw,y,0},{x+tw,y-tw,0},{x+tw,y-tw,-h},{x+tw,y,-h}, stoneTower);
+            fillQ({x,y,-h},{x+tw,y,-h},{x+tw,y-tw,-h},{x,y-tw,-h}, stoneTower);
         }
     }
 
-    // ── 3. Tower roofs / pyramids (yellow) ──
+    // 3. Tower pyramid roofs
     {
-        float tw = 1.0f;
-        float towerTop = -2.5f;   // top of tower walls
-        float roofTip  = -3.5f;   // tip of pyramid roof
+        float tTopZ = -towerH, tipZ = tTopZ-1.5f;
         float offsets[][2] = {
-            {cx - 2.0f, cy + 1.0f},
-            {cx + 2.0f, cy + 1.0f},
-            {cx + 2.0f, cy - 1.0f},
-            {cx - 2.0f, cy - 1.0f}
+            {cx-1.9f, cy+0.9f}, {cx+2.1f, cy+0.9f},
+            {cx+2.1f, cy-0.9f}, {cx-1.9f, cy-0.9f}
         };
-
+        float hw = 0.6f, hh = 0.6f;
         for (auto &off : offsets) {
-            std::vector<cv::Point3f> pts;
-            std::vector<std::pair<int,int>> edges;
-            addPyramid(pts, edges, off[0], off[1], towerTop, 0.6f, 0.6f, roofTip);
-            drawWireframe(frame, pts, edges, cameraMatrix, distCoeffs, rvec, tvec,
-                          cv::Scalar(0, 220, 255), 2); // yellow
+            float ox=off[0], oy=off[1];
+            fillT({ox-hw,oy+hh,tTopZ},{ox+hw,oy+hh,tTopZ},{ox,oy,tipZ}, towerRoofC);
+            fillT({ox+hw,oy+hh,tTopZ},{ox+hw,oy-hh,tTopZ},{ox,oy,tipZ}, towerRoofC);
+            fillT({ox+hw,oy-hh,tTopZ},{ox-hw,oy-hh,tTopZ},{ox,oy,tipZ}, towerRoofC);
+            fillT({ox-hw,oy-hh,tTopZ},{ox-hw,oy+hh,tTopZ},{ox,oy,tipZ}, towerRoofC);
         }
     }
 
-    // ── 4. Central keep / tall tower (green) ──
+    // 4. Central keep
+    {
+        float x=cx-keepW/2, y=cy+keepH/2, z=keepBaseZ, h=keepWallH;
+        fillQ({x,y,z},{x+keepW,y,z},{x+keepW,y,z-h},{x,y,z-h}, keepWallC);
+        fillQ({x,y-keepH,z},{x+keepW,y-keepH,z},{x+keepW,y-keepH,z-h},{x,y-keepH,z-h}, keepWallC);
+        fillQ({x,y,z},{x,y-keepH,z},{x,y-keepH,z-h},{x,y,z-h}, keepWallC);
+        fillQ({x+keepW,y,z},{x+keepW,y-keepH,z},{x+keepW,y-keepH,z-h},{x+keepW,y,z-h}, keepWallC);
+        fillQ({x,y,z-h},{x+keepW,y,z-h},{x+keepW,y-keepH,z-h},{x,y-keepH,z-h}, keepWallC);
+    }
+
+    // 5. Keep pyramid roof
+    {
+        float kTopZ = keepBaseZ-keepWallH, tipZ = kTopZ-2.0f;
+        float hw=1.1f, hh=1.1f;
+        fillT({cx-hw,cy+hh,kTopZ},{cx+hw,cy+hh,kTopZ},{cx,cy,tipZ}, keepRoofC);
+        fillT({cx+hw,cy+hh,kTopZ},{cx+hw,cy-hh,kTopZ},{cx,cy,tipZ}, keepRoofC);
+        fillT({cx+hw,cy-hh,kTopZ},{cx-hw,cy-hh,kTopZ},{cx,cy,tipZ}, keepRoofC);
+        fillT({cx-hw,cy-hh,kTopZ},{cx-hw,cy+hh,kTopZ},{cx,cy,tipZ}, keepRoofC);
+    }
+
+    cv::addWeighted(overlay, 0.60, frame, 0.40, 0, frame);
+
+    // ── Wireframe pass ───────────────────────────────────────────────────────
+    // 1. Castle walls (blue)
     {
         std::vector<cv::Point3f> pts;
         std::vector<std::pair<int,int>> edges;
-        addBox(pts, edges, cx - 0.75f, cy + 0.75f, -1.5f, 1.5f, 1.5f, 2.5f);
+        addBox(pts, edges, cx-2.5f, cy+1.5f, 0, 5.0f, 3.0f, wallH);
         drawWireframe(frame, pts, edges, cameraMatrix, distCoeffs, rvec, tvec,
-                      cv::Scalar(0, 200, 0), 2); // green
+                      cv::Scalar(255,100,50), 3);
     }
 
-    // ── 5. Central roof pyramid (magenta) ──
+    // 2. Corner towers (red)
+    {
+        float offsets[][2] = {
+            {cx-2.5f, cy+1.5f},
+            {cx+1.5f, cy+1.5f},
+            {cx+1.5f, cy-1.5f+tw},
+            {cx-2.5f, cy-1.5f+tw}
+        };
+        for (auto &off : offsets) {
+            std::vector<cv::Point3f> pts;
+            std::vector<std::pair<int,int>> edges;
+            addBox(pts, edges, off[0], off[1], 0, tw, tw, towerH);
+            drawWireframe(frame, pts, edges, cameraMatrix, distCoeffs, rvec, tvec,
+                          cv::Scalar(0,0,220), 3);
+        }
+    }
+
+    // 3. Tower roofs (yellow)
+    {
+        float tTopZ = -towerH, tipZ = tTopZ-1.5f;
+        float offsets[][2] = {
+            {cx-1.9f, cy+0.9f}, {cx+2.1f, cy+0.9f},
+            {cx+2.1f, cy-0.9f}, {cx-1.9f, cy-0.9f}
+        };
+        for (auto &off : offsets) {
+            std::vector<cv::Point3f> pts;
+            std::vector<std::pair<int,int>> edges;
+            addPyramid(pts, edges, off[0], off[1], tTopZ, 0.6f, 0.6f, tipZ);
+            drawWireframe(frame, pts, edges, cameraMatrix, distCoeffs, rvec, tvec,
+                          cv::Scalar(0,220,255), 3);
+        }
+    }
+
+    // 4. Central keep (green)
     {
         std::vector<cv::Point3f> pts;
         std::vector<std::pair<int,int>> edges;
-        addPyramid(pts, edges, cx, cy, -4.0f, 0.9f, 0.9f, -5.5f);
+        addBox(pts, edges, cx-keepW/2, cy+keepH/2, keepBaseZ, keepW, keepH, keepWallH);
         drawWireframe(frame, pts, edges, cameraMatrix, distCoeffs, rvec, tvec,
-                      cv::Scalar(255, 0, 255), 2); // magenta
+                      cv::Scalar(0,200,0), 3);
     }
 
-    // ── 6. Flag pole + flag on central tower (cyan + red) ──
+    // 5. Keep roof (magenta)
     {
-        // Pole
-        std::vector<cv::Point3f> polePts = {{cx, cy, -5.5f}, {cx, cy, -7.0f}};
-        std::vector<std::pair<int,int>> poleEdges = {{0, 1}};
+        float kTopZ = keepBaseZ-keepWallH, tipZ = kTopZ-2.0f;
+        std::vector<cv::Point3f> pts;
+        std::vector<std::pair<int,int>> edges;
+        addPyramid(pts, edges, cx, cy, kTopZ, 1.1f, 1.1f, tipZ);
+        drawWireframe(frame, pts, edges, cameraMatrix, distCoeffs, rvec, tvec,
+                      cv::Scalar(255,0,255), 3);
+    }
+
+    // 6. Flag pole + flag
+    {
+        float kTopZ  = keepBaseZ-keepWallH;
+        float pBase  = kTopZ-2.0f;
+        float pTop   = pBase-1.5f;
+        std::vector<cv::Point3f> polePts = {{cx, cy, pBase}, {cx, cy, pTop}};
+        std::vector<std::pair<int,int>> poleEdges = {{0,1}};
         drawWireframe(frame, polePts, poleEdges, cameraMatrix, distCoeffs, rvec, tvec,
-                      cv::Scalar(200, 200, 200), 2); // white pole
-
-        // Flag (triangle)
+                      cv::Scalar(200,200,200), 2);
         std::vector<cv::Point3f> flagPts = {
-            {cx, cy, -7.0f},
-            {cx + 1.0f, cy, -6.5f},
-            {cx, cy, -6.0f}
+            {cx,      cy, pTop},
+            {cx+1.0f, cy, pTop+0.5f},
+            {cx,      cy, pTop+1.0f}
         };
-        std::vector<std::pair<int,int>> flagEdges = {{0, 1}, {1, 2}, {2, 0}};
+        std::vector<std::pair<int,int>> flagEdges = {{0,1},{1,2},{2,0}};
         drawWireframe(frame, flagPts, flagEdges, cameraMatrix, distCoeffs, rvec, tvec,
-                      cv::Scalar(0, 0, 255), 3); // red flag
+                      cv::Scalar(0,0,255), 3);
     }
 
-    // ── 7. Gate archway on front wall (orange) ──
-
+    // 7. Gate archway (orange)
     {
-        float gx = cx;
-        float gy = cy + 1.5f; // front face
+        float gx = cx, gy = cy+1.5f;
         std::vector<cv::Point3f> gatePts = {
-            {gx - 0.3f, gy, 0},          // 0: bottom-left
-            {gx + 0.3f, gy, 0},          // 1: bottom-right
-            {gx + 0.3f, gy, -0.8f},      // 2: top-right
-            {gx - 0.3f, gy, -0.8f},      // 3: top-left
-            {gx,        gy, -1.0f}        // 4: arch peak
+            {gx-0.4f, gy,  0.0f},
+            {gx+0.4f, gy,  0.0f},
+            {gx+0.4f, gy, -1.0f},
+            {gx-0.4f, gy, -1.0f},
+            {gx,      gy, -1.3f}
         };
-        std::vector<std::pair<int,int>> gateEdges = {
-            {0, 1}, {0, 3}, {1, 2}, {2, 4}, {3, 4}
-        };
+        std::vector<std::pair<int,int>> gateEdges = {{0,1},{0,3},{1,2},{2,4},{3,4}};
         drawWireframe(frame, gatePts, gateEdges, cameraMatrix, distCoeffs, rvec, tvec,
-                      cv::Scalar(0, 140, 255), 3); // orange
+                      cv::Scalar(0,140,255), 3);
     }
 }
 

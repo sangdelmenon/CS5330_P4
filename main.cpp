@@ -189,15 +189,18 @@ int main(int argc, char *argv[])
                     cv::projectPoints(pt3, rvec, tvec, cameraMatrix, distCoeffs, pt2);
                     imgPts.push_back(pt2[0]);
                 }
-                // Draw edges
+                // Draw face edges
                 for (auto &face : objFaces) {
                     for (size_t i = 0; i < face.vertexIndices.size(); i++) {
                         int a = face.vertexIndices[i] - 1;
                         int b = face.vertexIndices[(i + 1) % face.vertexIndices.size()] - 1;
                         if (a >= 0 && a < (int)imgPts.size() && b >= 0 && b < (int)imgPts.size())
-                            cv::line(frame, imgPts[a], imgPts[b], cv::Scalar(0, 180, 0), 1);
+                            cv::line(frame, imgPts[a], imgPts[b], cv::Scalar(0, 180, 0), 2, cv::LINE_AA);
                     }
                 }
+                // Draw vertex dots for clarity
+                for (auto &p : imgPts)
+                    cv::circle(frame, p, 2, cv::Scalar(0, 255, 100), -1);
             }
 
             // Extension: multiple ArUco targets — draw axes on every detected marker
