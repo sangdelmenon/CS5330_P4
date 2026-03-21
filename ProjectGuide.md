@@ -15,8 +15,8 @@ The entire codebase is complete and working. All seven tasks from the project sp
 
 **1.2 Augmented Reality (Tasks 5-6)**
 
-* **Axes & Corners:** The system can project 3D coordinate axes (X=red, Y=green, Z=blue) with a length of 3 squares, and draw the outside boundary of the checkerboard.
-* **Virtual Object:** A complex, multi-colored 3D wireframe castle has been built from scratch using 3D geometric coordinates mapped via `cv::projectPoints`. It features blue walls, four red towers with yellow roof pyramids, a green central keep with a magenta roof, an orange gate archway, and a flagpole. It is perfectly anchored to the target.
+* **Axes & Corners:** The system projects 3D coordinate axes (X=red, Y=green, Z=blue) as arrowed lines, each 5 squares long, using `cv::arrowedLine` with labeled tips (X/Y/Z). The outside boundary of the checkerboard is also drawn with yellow dots.
+* **Virtual Object:** A complex, multi-colored 3D castle has been built using `cv::projectPoints`. It features semi-transparent filled faces (60% alpha blend via `cv::fillConvexPoly` + `cv::addWeighted`) overlaid with anti-aliased wireframe edges. Structure: blue outer walls (2.5 units tall), four red corner towers (1.2×1.2 footprint, 4.0 units tall) with yellow pyramid roofs, a green central keep (2.0×2.0, 4.0 units tall) with a magenta roof, an orange gate archway, and a flagpole with a red flag on top.
 
 **1.3 Feature Detection (Task 7)**
 
@@ -26,9 +26,9 @@ The entire codebase is complete and working. All seven tasks from the project sp
 
 * **ArUco Markers:** Implemented an alternative to the checkerboard using ArUco markers, which are asymmetrical and often more stable for AR tracking.
 * **Multiple ArUco AR:** In ArUco mode, 3D axes are drawn independently on every detected marker in the scene, not just the first one.
-* **OBJ Model Loading:** Wrote a custom model loader that reads and renders a 3D `.obj` file (`Lowpoly_tree_sample2.obj`) directly onto the target.
-* **Target Disguise:** Pressing `d` overlays a semi-transparent mosaic over the detected chessboard, painting over each square using its projected corners so the calibration target is hidden.
-* **ORB AR Tracking:** Press `r` to capture any flat surface as a reference image, then `t` to activate tracking. ORB features are matched each frame and `solvePnPRansac` estimates the camera pose — no printed checkerboard required.
+* **OBJ Model Loading:** A custom model loader reads and renders `Lowpoly_tree_sample2.obj` (a low-poly house) on the target. Face edges are drawn with anti-aliased `cv::line` (thickness 2) and small green vertex dots (`cv::circle`) are drawn at each projected vertex. The model footprint is 4.0×3.2 board squares, centered on the board.
+* **Target Disguise:** Pressing `d` overlays a semi-transparent orange/dark-orange mosaic over the detected chessboard. Every square — including the outer border — is filled via `cv::fillConvexPoly` with a 65% alpha blend so the calibration target is fully hidden.
+* **ORB AR Tracking:** Press `r` to capture any flat surface as a reference image (extracts 2000 ORB keypoints), then `t` to activate tracking. BFMatcher (Hamming, cross-check) finds good matches (distance ≤ 2.0× best), and `solvePnPRansac` (reprojectionError=5.0, min 12 inliers) estimates the camera pose — no printed checkerboard required.
 
 ---
 
@@ -137,7 +137,7 @@ cd cmake-build-debug && make
 4. Press `x` to save.
 5. Press `a` again to toggle OFF.
 
-**What you should see:** Three colored lines shooting out from the top-left inner corner of the board — red (X along the board), green (Y along the board), blue (Z pointing up out of the board). Each line is 3 squares long with a letter label at the tip. All three axes must be clearly visible and distinct — if any axis collapses to a dot or short line, change the camera angle.
+**What you should see:** Three arrowed colored lines shooting out from the origin corner of the board — red (X along the board), green (Y along the board), blue (Z pointing up out of the board). Each axis is **5 squares long** with an arrowhead and a letter label (X/Y/Z) at the tip. All three axes must be clearly visible and distinct — if any axis collapses to a dot or short line, change the camera angle.
 
 ---
 
@@ -152,7 +152,7 @@ cd cmake-build-debug && make
 3. Tilt the camera to a 45-degree angle for a dramatic view and press `x`.
 4. Press `v` to toggle OFF.
 
-**What you should see:** A multi-colored wireframe castle floating on the board — blue outer walls, four red corner towers with yellow pyramid roofs, a green central keep with a magenta roof, an orange gate arch on the front, and a white flagpole with a red flag on top. All parts are anchored to the board and move correctly as the camera moves.
+**What you should see:** A multi-colored castle floating on the board with **semi-transparent filled faces** (stone gray walls, dark towers, blue-red roofs, green keep, purple keep roof) and anti-aliased colored wireframe edges over them — blue outer walls, four red corner towers with yellow pyramid roofs, a green central keep with a magenta roof, an orange gate arch on the front, and a white flagpole with a red flag on top. All parts are anchored to the board and move correctly as the camera moves. The castle is significantly taller and wider than the old wireframe-only version.
 
 ---
 
@@ -221,7 +221,10 @@ cp Lowpoly_tree_sample2.obj cmake-build-debug/
 ```
 OBJ model loaded: 25 vertices.
 ```
-If it does not print this line, the `.obj` file is missing from `cmake-build-debug/`.
+If it does not print this line, copy the OBJ file manually:
+```bash
+cp /Users/san/CLionProjects/CS5330_P4/Lowpoly_tree_sample2.obj cmake-build-debug/
+```
 
 **What to do:**
 1. Make sure all other keys are OFF.
@@ -230,7 +233,7 @@ If it does not print this line, the `.obj` file is missing from `cmake-build-deb
 4. Press `x` to save.
 5. Press `o` to toggle OFF.
 
-**What you should see:** A green wireframe low-poly tree projected and anchored on the chessboard target, rendered using `cv::line` connecting the OBJ faces.
+**What you should see:** A green wireframe low-poly house (4.0×3.2 squares footprint) projected and anchored on the chessboard target. Face edges are drawn with anti-aliased `cv::line` (thickness 2) and small bright-green dots appear at each projected vertex. The house includes a pyramid roof, chimney, door outline, and window outline.
 
 ---
 
@@ -273,7 +276,7 @@ If it does not print this line, the `.obj` file is missing from `cmake-build-deb
    ```
    ORB reference captured: XXXX keypoints.
    ```
-   If the keypoint count is below ~200, the surface has too little texture. Move to a more detailed surface and press `r` again.
+   If the keypoint count is below ~300, the surface has too little texture. Move to a more detailed surface and press `r` again. Good surfaces: book covers, magazine pages, posters, patterned fabric. The tracker now uses 2000 ORB keypoints per frame for improved robustness.
 4. Press `t` to enable tracking. The HUD will show `ORB Track: searching...` in orange.
 5. Move the camera slightly and back toward the same surface. When locked on, the HUD turns **green** and shows `ORB Track: NN inliers`.
 6. Press `x` to save **only when the HUD is green**. An orange HUD means it is still searching.
@@ -326,7 +329,7 @@ The report needs to be submitted as a PDF. It must not include code. Here is exa
 **4.4 AR Screenshots & Description**
 
 * Include a screenshot of the 3D axes projected onto the board.
-* Include a screenshot of our virtual object (the multi-colored castle). Describe the object in the text (e.g., "A wireframe castle with blue walls, red towers, a green keep, and a red flag, constructed using `cv::line` and 3D geometric coordinates").
+* Include a screenshot of our virtual object (the multi-colored castle). Describe the object in the text (e.g., "A castle with semi-transparent filled faces (60% alpha blend via `cv::fillConvexPoly` + `cv::addWeighted`) and anti-aliased wireframe edges, featuring blue outer walls, red corner towers with yellow pyramid roofs, a green central keep with a magenta roof, and a red flagpole, all anchored to the board via `cv::projectPoints`").
 
 **4.5 Feature Detection Discussion**
 
@@ -338,9 +341,9 @@ The report needs to be submitted as a PDF. It must not include code. Here is exa
 * Show screenshots and briefly describe our extensions:
 1. **ArUco Markers** — alternative target detection using ArUco markers.
 2. **Multiple ArUco AR** — independent 3D axes drawn on every detected marker simultaneously.
-3. **OBJ Model Loader** — custom parser rendering the 3D tree (`Lowpoly_tree_sample2.obj`) on the target.
-4. **Target Disguise** — semi-transparent mosaic overlay that hides the chessboard pattern in real time.
-5. **ORB AR Tracking** — markerless AR on any flat surface using ORB feature matching and `solvePnPRansac`.
+3. **OBJ Model Loader** — custom parser rendering `Lowpoly_tree_sample2.obj` (low-poly house, 4×3.2 board squares) with vertex dots and anti-aliased face edges.
+4. **Target Disguise** — semi-transparent orange mosaic overlay that hides every chessboard square (including border squares) in real time.
+5. **ORB AR Tracking** — markerless AR on any flat textured surface using 2000-keypoint ORB matching, BFMatcher with cross-check, and `solvePnPRansac` (reprojectionError=5.0, min 12 inliers).
 
 
 
@@ -356,10 +359,10 @@ The report needs to be submitted as a PDF. It must not include code. Here is exa
 | --- | --- |
 | `main.cpp` | Main video loop, key handling, and state management (toggling modes). |
 | `cameracalibration.cpp/.h` | Handles `calibrateCamera` logic and saving/loading YAML files. |
-| `augmentedreality.cpp/.h` | Contains all the drawing logic: 3D axes, outside corners, and the custom `drawCastle` wireframe rendering. |
+| `augmentedreality.cpp/.h` | All drawing logic: arrowed 3D axes (5 squares, `cv::arrowedLine`), outside corners, `drawCastle` (filled faces + wireframe), `drawTargetDisguise`. |
 | `chessboarddetection.cpp/.h` | Wraps `findChessboardCorners` and the ArUco marker detection logic. |
 | `featuredetection.cpp/.h` | Implements Harris corner and ORB feature detection toggles. |
-| `orbtracking.cpp/.h` | ORB-based planar AR tracker — matches ORB descriptors against a captured reference frame and estimates pose via `solvePnPRansac`. |
+| `orbtracking.cpp/.h` | ORB-based planar AR tracker — 2000-keypoint ORB, BFMatcher cross-check, `solvePnPRansac` (reprojError=5.0, min 12 inliers) for robust markerless tracking. |
 | `modelloader.cpp/.h` | Extension: parses `.obj` files and loads 3D vertices/faces to project onto the target. |
 | `gui_opencv.cpp/.h` | OpenCV-based GUI sidebar with buttons and sliders for all AR and calibration controls. |
 | `main_gui.cpp` | Entry point for the GUI application (`Project4_GUI`). |
