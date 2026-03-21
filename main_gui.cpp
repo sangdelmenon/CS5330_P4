@@ -182,6 +182,9 @@ int main(int argc, char *argv[])
         cap >> frame;
         if (frame.empty()) break;
 
+        // Clean copy for ORB reference capture (before any overlays)
+        cv::Mat cleanFrame = frame.clone();
+
         std::vector<cv::Point2f>              corners;
         std::vector<std::vector<cv::Point2f>> allMarkerCorners;
         std::vector<int>                      allMarkerIds;
@@ -228,14 +231,7 @@ int main(int argc, char *argv[])
 
         if (flagCaptureRef) {
             flagCaptureRef = false;
-            orbTracker.setReference(frame);
-        }
-
-        if (flagScreenshot) {
-            flagScreenshot = false;
-            std::string fname = "screenshot_" + std::to_string(saveCounter++) + ".png";
-            cv::imwrite(fname, frame);
-            std::cout << "[OK] Screenshot saved: " << fname << "\n";
+            orbTracker.setReference(cleanFrame);
         }
 
         // ── AR overlays ──
@@ -312,6 +308,32 @@ int main(int argc, char *argv[])
             if (calibrated) hud += "  [CALIBRATED]";
             cv::putText(frame, hud, cv::Point(8, frame.rows - 10),
                         cv::FONT_HERSHEY_SIMPLEX, 0.45, cv::Scalar(0,220,220), 1);
+        }
+
+        // ── Screenshot (after all overlays, before sidebar is added) ──
+        if (flagScreenshot) {
+            flagScreenshot = false;
+            std::vector<std::string> parts;
+            if (useAruco)      parts.push_back("aruco");
+            if (showAxes)      parts.push_back("axes");
+            if (showCastle)    parts.push_back("castle");
+            if (showOBJ)       parts.push_back("obj");
+            if (showORB)       parts.push_back("orb_features");
+            if (showHarris)    parts.push_back("harris");
+            if (showDisguise)  parts.push_back("disguise");
+            if (orbTrackMode)  parts.push_back("orb_tracking");
+            if (parts.empty()) parts.push_back("detection");
+
+            std::string base;
+            for (size_t i = 0; i < parts.size(); i++) {
+                if (i > 0) base += "_";
+                base += parts[i];
+            }
+            namespace fs = std::filesystem;
+            fs::create_directories("screenshots");
+            std::string fname = "screenshots/" + base + "_" + std::to_string(saveCounter++) + ".png";
+            cv::imwrite(fname, frame);
+            std::cout << "[OK] Screenshot saved: " << fname << "\n";
         }
 
         // ── Build status panel lines ──
