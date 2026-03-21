@@ -2,6 +2,7 @@
 
 ## Team Members
 - **Sangeeth Deleep Menon** | NUID: 002524579 | MSCS - Boston | CS5330 Section 03 (CRN: 40669, Online)
+- **Raj Gupta** | NUID: 002068701 | MSCS - Boston | CS5330 Section 01 (CRN: 38745, Online)
 
 ## Project Description
 This project implements a camera calibration and augmented reality (AR) system in C++ using OpenCV. The system detects a chessboard calibration target, computes the camera's intrinsic matrix and distortion coefficients, then uses the calibrated camera to estimate the board's pose in real time and project virtual 3D objects onto the scene. Two target types are supported: the standard 9×6 chessboard and ArUco markers. The system also supports ORB-based planar AR tracking (Uber Extension 2), which allows any flat surface to serve as an AR target by matching ORB feature descriptors against a captured reference frame.
@@ -67,13 +68,13 @@ The GUI provides sidebar controls for toggling all AR overlays, saving calibrati
 | 2. Calibration frame selection | User presses `s` to store corner set and corresponding 3D world points |
 | 3. Camera calibration | `cv::calibrateCamera` with `CALIB_FIX_ASPECT_RATIO`; save/load via `cv::FileStorage` YAML |
 | 4. Pose estimation | `cv::solvePnP` per frame using stored calibration intrinsics |
-| 5. 3D axes / outside corners | `cv::projectPoints` for world-space axis endpoints and board corner positions |
-| 6. Virtual castle | Multi-part wireframe object (walls, 4 towers, pyramidal roofs, keep, flagpole, gate) built from boxes and pyramids with 7 colours |
+| 5. 3D axes / outside corners | `cv::arrowedLine` (5 squares, labeled tips); `cv::projectPoints` for outer board corners |
+| 6. Virtual castle | Semi-transparent filled faces (60% alpha via `cv::fillConvexPoly` + `cv::addWeighted`) + anti-aliased wireframe; walls 2.5u tall, towers 4.0u, keep 2×2×4u |
 | 7. Robust features | ORB (`cv::ORB`) and Harris corners (`cv::cornerHarris`) displayed live |
 | Ext. Target disguise | Per-square projected quad fill using `cv::fillConvexPoly` + alpha blend |
 | Ext. Multiple ArUco AR | Independent `solvePnP` + `draw3DAxes` on every detected marker |
 | Ext. OBJ model | Custom parser renders `Lowpoly_tree_sample2.obj` (low-poly house) via `cv::line` on detected faces |
-| Ext. ORB AR tracking | `cv::BFMatcher` (Hamming, cross-check) + `solvePnPRansac` on a user-captured reference image |
+| Ext. ORB AR tracking | `cv::ORB::create(2000)`, `cv::BFMatcher` (Hamming, cross-check, distance ≤ 2.0×), `solvePnPRansac` (reprojErr=5.0, min 12 inliers) |
 
 ## Project Files
 | File | Description |
@@ -83,22 +84,23 @@ The GUI provides sidebar controls for toggling all AR overlays, saving calibrati
 | `gui_opencv.cpp` / `gui_opencv.h` | OpenCV-based GUI sidebar and rendering |
 | `chessboarddetection.cpp` / `.h` | Chessboard corner detection, ArUco detection, world point generation |
 | `cameracalibration.cpp` / `.h` | `calibrateCamera` wrapper, YAML save/load |
-| `augmentedreality.cpp` / `.h` | 3D axes, outside corners, castle, OBJ overlay, target disguise |
+| `augmentedreality.cpp` / `.h` | 3D axes (`cv::arrowedLine`), outside corners, `drawCastle` (filled faces + wireframe), `drawTargetDisguise` |
 | `featuredetection.cpp` / `.h` | ORB feature detection, Harris corner detection |
-| `orbtracking.cpp` / `.h` | ORB-based planar AR tracker (Uber Extension 2) |
+| `orbtracking.cpp` / `.h` | ORB-based planar AR tracker — 2000-keypoint ORB, BFMatcher cross-check, `solvePnPRansac` (reprojErr=5.0, min 12 inliers) |
 | `modelloader.cpp` / `.h` | Wavefront OBJ file parser |
 | `CMakeLists.txt` | Build configuration for both CLI and GUI targets |
 
 ## Extensions
-- **Uber Extension 2 — ORB AR Tracking:** Press `r` to capture any flat surface as the reference image, then press `t` to activate tracking. ORB features are matched each frame using a BFMatcher with Hamming distance and cross-check filtering. Good matches are used to build 3D–2D correspondences (mapping reference pixels to world-plane coordinates) and `solvePnPRansac` estimates the camera pose. When tracking succeeds, 3D axes and the castle overlay are drawn on the tracked surface.
+- **Target Disguise:** Pressing `d` overlays a semi-transparent orange/dark-orange mosaic over the detected chessboard, painting over each square individually (including border squares) using its projected corners, so the calibration target is no longer visible as a checkerboard.
 - **Multiple ArUco Targets:** In ArUco mode (`m`), 3D axes are drawn independently on every detected ArUco marker in the scene, not just the first one.
-- **Target Disguise:** Pressing `d` overlays a semi-transparent orange/dark-orange mosaic over the detected chessboard, painting over each square individually using its projected corners, so the calibration target is no longer visible as a checkerboard.
+- **OBJ Model Loader:** Custom parser renders `Lowpoly_tree_sample2.obj` (low-poly house, 4×3.2 board squares footprint) with anti-aliased face edges and vertex dots.
+- **Uber Extension 2 — ORB AR Tracking:** Press `r` to capture any flat surface as the reference image, then press `t` to activate tracking. ORB features are matched each frame using a BFMatcher with Hamming distance and cross-check filtering. `solvePnPRansac` estimates the camera pose. When tracking succeeds, 3D axes and the castle overlay are drawn on the tracked surface.
 
 ## Time Travel Days
 0 days used.
 
 ## Videos
-[Insert link to demo video]
+**Panopto Link: https://northeastern.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=e25c0af1-604f-4f13-aee1-b4140037a390**
 
 ## Acknowledgements
 - OpenCV documentation for calibration, pose estimation, ArUco, and ORB references
