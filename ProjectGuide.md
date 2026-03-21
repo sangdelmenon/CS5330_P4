@@ -16,7 +16,7 @@ The entire codebase is complete and working. All seven tasks from the project sp
 **1.2 Augmented Reality (Tasks 5-6)**
 
 * **Axes & Corners:** The system projects 3D coordinate axes (X=red, Y=green, Z=blue) as arrowed lines, each 5 squares long, using `cv::arrowedLine` with labeled tips (X/Y/Z). The outside boundary of the checkerboard is also drawn with yellow dots.
-* **Virtual Object:** A complex, multi-colored 3D castle has been built using `cv::projectPoints`. It features semi-transparent filled faces (60% alpha blend via `cv::fillConvexPoly` + `cv::addWeighted`) overlaid with anti-aliased wireframe edges. Structure: blue outer walls (2.5 units tall), four red corner towers (1.2×1.2 footprint, 4.0 units tall) with yellow pyramid roofs, a green central keep (2.0×2.0, 4.0 units tall) with a magenta roof, an orange gate archway, and a flagpole with a red flag on top.
+* **Virtual Objects:** Two chess pieces are rendered using `cv::projectPoints` with semi-transparent filled faces (82% alpha blend via `cv::fillConvexPoly` + `cv::addWeighted`) and anti-aliased wireframe edges. Both are built from stacked 8-sided octagonal rings (lathe-style). The **pawn** (`v`) is placed left of board center: wide base plate, cylindrical body, narrow neck, and a round head — ivory/stone fill with gold wireframe. The **queen** (`b`) is placed right of board center: wide base, tapered body, waist, tall upper body, 5-point alternating crown spikes, and a small orb on top — white/ivory fill with purple body wireframe and gold crown wireframe. Both can be toggled independently (none / pawn / queen / both).
 
 **1.3 Feature Detection (Task 7)**
 
@@ -65,7 +65,8 @@ Make sure `Lowpoly_tree_sample2.obj` is copied into the working directory if you
 | **c** | Run the calibration calculation (requires >= 5 saved frames) |
 | **w** | Write the calibration matrix and distortion coefficients to a file |
 | **a** | Toggle 3D axes display |
-| **v** | Toggle the virtual wireframe castle display |
+| **v** | Toggle the chess pawn display |
+| **b** | Toggle the chess queen display |
 | **o** | Toggle the loaded OBJ model display |
 | **p** | Print the current pose (rotation and translation matrices) to the terminal |
 | **f** | Toggle ORB feature detection |
@@ -82,7 +83,7 @@ Make sure `Lowpoly_tree_sample2.obj` is copied into the working directory if you
 ## 3. Step-by-Step: Generate Report Data
 
 > **IMPORTANT RULE FOR ALL SCREENSHOTS**
-> Each screenshot must show **only one feature at a time**. Before enabling a new feature, press the same key again to toggle the previous one **OFF**. The `v` (castle) key is easy to forget — make sure it is off before capturing feature detection shots.
+> Each screenshot must show **only one feature at a time**. Before enabling a new feature, press the same key again to toggle the previous one **OFF**. The `v` (pawn) and `b` (queen) keys are easy to forget — make sure they are off before capturing feature detection shots.
 > Use `x` to save a screenshot at any point.
 
 ---
@@ -141,18 +142,18 @@ cd cmake-build-debug && make
 
 ---
 
-**3.5 Screenshot 3 — Virtual Castle**
+**3.5 Screenshot 3 — Virtual Chess Pieces**
 
 **Files needed:**
 - Same printed/displayed `checkerboard.png` as above.
 
 **What to do:**
 1. Make sure all other keys are OFF.
-2. Press `v` to toggle the castle ON.
+2. Press `v` to toggle the pawn ON, then press `b` to toggle the queen ON.
 3. Tilt the camera to a 45-degree angle for a dramatic view and press `x`.
-4. Press `v` to toggle OFF.
+4. Press `v` then `b` to toggle both OFF.
 
-**What you should see:** A multi-colored castle floating on the board with **semi-transparent filled faces** (stone gray walls, dark towers, blue-red roofs, green keep, purple keep roof) and anti-aliased colored wireframe edges over them — blue outer walls, four red corner towers with yellow pyramid roofs, a green central keep with a magenta roof, an orange gate arch on the front, and a white flagpole with a red flag on top. All parts are anchored to the board and move correctly as the camera moves. The castle is significantly taller and wider than the old wireframe-only version.
+**What you should see:** Two chess pieces floating on the board with semi-transparent filled faces and anti-aliased wireframe edges. The **pawn** (left of center) has a wide base, cylindrical body, narrow neck, and round head with ivory fill and gold wireframe. The **queen** (right of center) is taller with a wider base, tapered body, waist, tall upper body, 5-point alternating crown spikes, and a small orb on top with white/ivory fill, purple body wireframe, and gold crown wireframe. Both are anchored to the board and move correctly as the camera moves.
 
 ---
 
@@ -161,7 +162,7 @@ cd cmake-build-debug && make
 **Files needed:** None — ORB runs on whatever the camera sees. Having the chessboard in view gives good results but is not required.
 
 **What to do:**
-1. Make sure `v`, `h`, `a`, `d`, `t` are all OFF.
+1. Make sure `v`, `b`, `h`, `a`, `d`, `t` are all OFF.
 2. Press `f` to toggle ORB features ON.
 3. Press `x` to save.
 4. Press `f` to toggle OFF.
@@ -175,7 +176,7 @@ cd cmake-build-debug && make
 **Files needed:** None — Harris runs on whatever the camera sees. Having the chessboard in view works well since it has many sharp corners.
 
 **What to do:**
-1. Make sure `v`, `f`, `a`, `d`, `t` are all OFF.
+1. Make sure `v`, `b`, `f`, `a`, `d`, `t` are all OFF.
 2. Press `h` to toggle Harris ON.
 3. Press `x` to save.
 4. Press `h` to toggle OFF.
@@ -282,7 +283,7 @@ cp /Users/san/CLionProjects/CS5330_P4/Lowpoly_tree_sample2.obj cmake-build-debug
 6. Press `x` to save **only when the HUD is green**. An orange HUD means it is still searching.
 7. Press `t` to toggle OFF.
 
-**What you should see:** 3D axes and the wireframe castle appear floating on the flat surface you captured — with no printed chessboard in view. The overlay tracks as you move the camera. The HUD shows a green inlier count when tracking is successful.
+**What you should see:** 3D axes and both chess pieces (pawn and queen) appear floating on the flat surface you captured — with no printed chessboard in view. The overlay tracks as you move the camera. The HUD shows a green inlier count when tracking is successful.
 
 ---
 
@@ -301,9 +302,9 @@ cp /Users/san/CLionProjects/CS5330_P4/Lowpoly_tree_sample2.obj cmake-build-debug
 
 Use macOS screen recorder (`Cmd+Shift+5`) to capture a 30–60 second clip:
 1. Show the chessboard being detected with corners drawn.
-2. Turn on the castle (`v`) and move the camera around to prove it stays anchored in 3D.
+2. Turn on the pawn (`v`) and queen (`b`) and move the camera around to prove they stay anchored in 3D.
 3. Turn on the disguise (`d`) briefly to show the board being hidden.
-4. Switch to ORB tracking (`r` then `t`) and show the castle on a plain surface.
+4. Switch to ORB tracking (`r` then `t`) and show the chess pieces on a plain surface.
 5. Upload to YouTube (Unlisted) or Google Drive and save the link for the report.
 
 ---
@@ -329,7 +330,7 @@ The report needs to be submitted as a PDF. It must not include code. Here is exa
 **4.4 AR Screenshots & Description**
 
 * Include a screenshot of the 3D axes projected onto the board.
-* Include a screenshot of our virtual object (the multi-colored castle). Describe the object in the text (e.g., "A castle with semi-transparent filled faces (60% alpha blend via `cv::fillConvexPoly` + `cv::addWeighted`) and anti-aliased wireframe edges, featuring blue outer walls, red corner towers with yellow pyramid roofs, a green central keep with a magenta roof, and a red flagpole, all anchored to the board via `cv::projectPoints`").
+* Include screenshots of the chess pieces. Describe them in the text (e.g., "Two chess pieces rendered as lathe-style 8-sided shapes: a pawn (left of center) with a wide base, cylindrical body, narrow neck, and round head (ivory fill, gold wireframe), and a queen (right of center) with a wide base, tapered body, waist, tall upper body, 5-point crown with alternating spike heights, and a small orb on top (white/ivory fill, purple body wireframe, gold crown wireframe). Both use 82% alpha-blended `cv::fillConvexPoly` faces and anti-aliased wireframe edges, anchored to the board via `cv::projectPoints`").
 
 **4.5 Feature Detection Discussion**
 
@@ -359,7 +360,7 @@ The report needs to be submitted as a PDF. It must not include code. Here is exa
 | --- | --- |
 | `main.cpp` | Main video loop, key handling, and state management (toggling modes). |
 | `cameracalibration.cpp/.h` | Handles `calibrateCamera` logic and saving/loading YAML files. |
-| `augmentedreality.cpp/.h` | All drawing logic: arrowed 3D axes (5 squares, `cv::arrowedLine`), outside corners, `drawCastle` (filled faces + wireframe), `drawTargetDisguise`. |
+| `augmentedreality.cpp/.h` | All drawing logic: arrowed 3D axes (5 squares, `cv::arrowedLine`), outside corners, `drawChessPawn` and `drawChessQueen` (lathe-style 8-sided ring pieces with filled faces + wireframe), `drawTargetDisguise`. |
 | `chessboarddetection.cpp/.h` | Wraps `findChessboardCorners` and the ArUco marker detection logic. |
 | `featuredetection.cpp/.h` | Implements Harris corner and ORB feature detection toggles. |
 | `orbtracking.cpp/.h` | ORB-based planar AR tracker — 2000-keypoint ORB, BFMatcher cross-check, `solvePnPRansac` (reprojError=5.0, min 12 inliers) for robust markerless tracking. |

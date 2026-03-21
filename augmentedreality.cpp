@@ -338,6 +338,212 @@ void drawCastle(cv::Mat &frame, const cv::Mat &cameraMatrix,
     }
 }
 
+// ─── Static helpers for chess pieces ───────────────────────────────────────
+
+// N-sided ring of 3D points at height z, radius r, centered at (cx,cy).
+static std::vector<cv::Point3f> makeRing(float cx, float cy, float z, float r, int N) {
+    std::vector<cv::Point3f> ring;
+    for (int i = 0; i < N; i++) {
+        float a = 2.0f * (float)M_PI * i / N;
+        ring.push_back({cx + r * cosf(a), cy + r * sinf(a), z});
+    }
+    return ring;
+}
+
+// Fill quads connecting two same-N rings onto an overlay.
+static void fillBand(cv::Mat &overlay,
+                     const std::vector<cv::Point3f> &bot,
+                     const std::vector<cv::Point3f> &top,
+                     const cv::Mat &cm, const cv::Mat &dc,
+                     const cv::Mat &rv, const cv::Mat &tv, cv::Scalar col) {
+    int N = (int)bot.size();
+    for (int i = 0; i < N; i++) {
+        int j = (i + 1) % N;
+        std::vector<cv::Point3f> q = {bot[i], bot[j], top[j], top[i]};
+        std::vector<cv::Point2f> q2;
+        cv::projectPoints(q, rv, tv, cm, dc, q2);
+        std::vector<cv::Point> poly;
+        for (auto &p : q2) poly.push_back({cvRound(p.x), cvRound(p.y)});
+        cv::fillConvexPoly(overlay, poly, col);
+    }
+}
+
+// Fill a ring polygon (cap) onto an overlay.
+static void fillCap(cv::Mat &overlay,
+                    const std::vector<cv::Point3f> &ring,
+                    const cv::Mat &cm, const cv::Mat &dc,
+                    const cv::Mat &rv, const cv::Mat &tv, cv::Scalar col) {
+    std::vector<cv::Point2f> p2;
+    cv::projectPoints(ring, rv, tv, cm, dc, p2);
+    std::vector<cv::Point> poly;
+    for (auto &p : p2) poly.push_back({cvRound(p.x), cvRound(p.y)});
+    cv::fillConvexPoly(overlay, poly, col);
+}
+
+// Wireframe: draw top ring, bottom ring, and vertical connectors between two rings.
+static void wireBand(cv::Mat &frame,
+                     const std::vector<cv::Point3f> &bot,
+                     const std::vector<cv::Point3f> &top,
+                     const cv::Mat &cm, const cv::Mat &dc,
+                     const cv::Mat &rv, const cv::Mat &tv,
+                     cv::Scalar col, int thick = 2) {
+    int N = (int)bot.size();
+    std::vector<cv::Point3f> all;
+    for (auto &p : bot) all.push_back(p);
+    for (auto &p : top) all.push_back(p);
+    std::vector<std::pair<int,int>> edges;
+    for (int i = 0; i < N; i++) {
+        edges.push_back({i,     (i + 1) % N});
+        edges.push_back({N + i, N + (i + 1) % N});
+        edges.push_back({i,     N + i});
+    }
+    drawWireframe(frame, all, edges, cm, dc, rv, tv, col, thick);
+}
+
+// ─── Chess Pawn ─────────────────────────────────────────────────────────────
+// Lathe-style shape built from stacked octagonal rings.
+// Placed left of board center. Colors: ivory body, gold wireframe.
+void drawChessPawn(cv::Mat &frame, const cv::Mat &cameraMatrix,
+                   const cv::Mat &distCoeffs, const cv::Mat &rvec, const cv::Mat &tvec,
+                   const cv::Size &patternSize)
+{
+    float boardCx = (patternSize.width  - 1) / 2.0f;
+    float boardCy = -(patternSize.height - 1) / 2.0f;
+    float cx = boardCx - 1.5f;
+    float cy = boardCy;
+    const int N = 8;
+
+    // Profile: (radius, z) from base up; z negative = above board
+    using PF = std::pair<float,float>;
+    std::vector<PF> prof = {
+        {0.36f,  0.00f},  // base bottom
+        {0.36f, -0.12f},  // base top
+        {0.25f, -0.16f},  // body start
+        {0.25f, -0.65f},  // body top
+        {0.13f, -0.72f},  // neck bottom
+        {0.13f, -0.85f},  // neck top
+        {0.22f, -0.90f},  // head bottom
+        {0.25f, -1.10f},  // head equator
+        {0.18f, -1.32f},  // head taper
+        {0.05f, -1.42f},  // head tip
+    };
+
+    std::vector<std::vector<cv::Point3f>> rings;
+    for (auto &[r, z] : prof)
+        rings.push_back(makeRing(cx, cy, z, r, N));
+
+    cv::Mat overlay = frame.clone();
+    const cv::Scalar body(215, 220, 225);
+    const cv::Scalar base(170, 178, 188);
+
+    fillCap(overlay, rings[0], cameraMatrix, distCoeffs, rvec, tvec, base);
+    fillBand(overlay, rings[0], rings[1], cameraMatrix, distCoeffs, rvec, tvec, base);
+    fillBand(overlay, rings[1], rings[2], cameraMatrix, distCoeffs, rvec, tvec, body);
+    for (int i = 2; i < (int)rings.size() - 1; i++)
+        fillBand(overlay, rings[i], rings[i+1], cameraMatrix, distCoeffs, rvec, tvec, body);
+    fillCap(overlay, rings.back(), cameraMatrix, distCoeffs, rvec, tvec, body);
+
+    cv::addWeighted(overlay, 0.82, frame, 0.18, 0, frame);
+
+    const cv::Scalar wire(0, 200, 255);  // gold
+    for (int i = 0; i < (int)rings.size() - 1; i++)
+        wireBand(frame, rings[i], rings[i+1], cameraMatrix, distCoeffs, rvec, tvec, wire, 2);
+}
+
+// ─── Chess Queen ─────────────────────────────────────────────────────────────
+// Taller lathe shape with a 5-point crown and orb on top.
+// Placed right of board center. Colors: white body, purple wireframe, gold crown.
+void drawChessQueen(cv::Mat &frame, const cv::Mat &cameraMatrix,
+                    const cv::Mat &distCoeffs, const cv::Mat &rvec, const cv::Mat &tvec,
+                    const cv::Size &patternSize)
+{
+    float boardCx = (patternSize.width  - 1) / 2.0f;
+    float boardCy = -(patternSize.height - 1) / 2.0f;
+    float cx = boardCx + 1.5f;
+    float cy = boardCy;
+    const int N = 8;
+
+    using PF = std::pair<float,float>;
+    std::vector<PF> prof = {
+        {0.46f,  0.00f},  // base bottom
+        {0.46f, -0.13f},  // base top
+        {0.33f, -0.17f},  // lower body start
+        {0.28f, -0.55f},  // lower body top (slight taper)
+        {0.14f, -0.65f},  // waist bottom
+        {0.14f, -0.80f},  // waist top
+        {0.27f, -0.86f},  // upper body start
+        {0.29f, -1.50f},  // upper body top
+        {0.33f, -1.58f},  // crown base (flare)
+    };
+
+    std::vector<std::vector<cv::Point3f>> rings;
+    for (auto &[r, z] : prof)
+        rings.push_back(makeRing(cx, cy, z, r, N));
+
+    cv::Mat overlay = frame.clone();
+    const cv::Scalar ivory(245, 245, 250);
+    const cv::Scalar base (200, 200, 210);
+    const cv::Scalar crown( 40, 170, 255);  // gold
+
+    fillCap(overlay, rings[0], cameraMatrix, distCoeffs, rvec, tvec, base);
+    fillBand(overlay, rings[0], rings[1], cameraMatrix, distCoeffs, rvec, tvec, base);
+    fillBand(overlay, rings[1], rings[2], cameraMatrix, distCoeffs, rvec, tvec, ivory);
+    for (int i = 2; i < (int)rings.size() - 1; i++)
+        fillBand(overlay, rings[i], rings[i+1], cameraMatrix, distCoeffs, rvec, tvec, ivory);
+    fillCap(overlay, rings.back(), cameraMatrix, distCoeffs, rvec, tvec, crown);
+
+    // 5-point crown spikes: alternating tall/short
+    const int   crownN   = 5;
+    const float crownR   = 0.33f;
+    const float crownZ   = -1.58f;
+    const float tallTip  = -2.08f;
+    const float shortTip = -1.84f;
+    for (int i = 0; i < crownN; i++) {
+        float ang  = 2.0f * (float)M_PI * i / crownN;
+        float tipZ = (i % 2 == 0) ? tallTip : shortTip;
+        float aL   = ang - (float)M_PI / crownN;
+        float aR   = ang + (float)M_PI / crownN;
+        cv::Point3f L = {cx + crownR * 0.55f * cosf(aL), cy + crownR * 0.55f * sinf(aL), crownZ};
+        cv::Point3f R = {cx + crownR * 0.55f * cosf(aR), cy + crownR * 0.55f * sinf(aR), crownZ};
+        cv::Point3f T = {cx + crownR * cosf(ang),         cy + crownR * sinf(ang),         tipZ};
+        std::vector<cv::Point3f> tri = {L, R, T};
+        std::vector<cv::Point2f> t2;
+        cv::projectPoints(tri, rvec, tvec, cameraMatrix, distCoeffs, t2);
+        std::vector<cv::Point> poly;
+        for (auto &p : t2) poly.push_back({cvRound(p.x), cvRound(p.y)});
+        cv::fillConvexPoly(overlay, poly, crown);
+    }
+
+    // Small orb at crown top
+    float orbZ = -2.10f, orbR = 0.09f;
+    auto orbA = makeRing(cx, cy, orbZ,           orbR * 0.5f, N);
+    auto orbB = makeRing(cx, cy, orbZ - orbR,    orbR,        N);
+    auto orbC = makeRing(cx, cy, orbZ - orbR*2,  orbR * 0.5f, N);
+    fillBand(overlay, orbA, orbB, cameraMatrix, distCoeffs, rvec, tvec, crown);
+    fillBand(overlay, orbB, orbC, cameraMatrix, distCoeffs, rvec, tvec, crown);
+
+    cv::addWeighted(overlay, 0.82, frame, 0.18, 0, frame);
+
+    // Wireframe body (purple)
+    const cv::Scalar wireBody(200, 50, 220);
+    for (int i = 0; i < (int)rings.size() - 1; i++)
+        wireBand(frame, rings[i], rings[i+1], cameraMatrix, distCoeffs, rvec, tvec, wireBody, 2);
+
+    // Wireframe crown spikes (gold)
+    const cv::Scalar wireCrown(30, 200, 255);
+    for (int i = 0; i < crownN; i++) {
+        float ang  = 2.0f * (float)M_PI * i / crownN;
+        float tipZ = (i % 2 == 0) ? tallTip : shortTip;
+        float aL   = ang - (float)M_PI / crownN;
+        float aR   = ang + (float)M_PI / crownN;
+        cv::Point3f L = {cx + crownR * 0.55f * cosf(aL), cy + crownR * 0.55f * sinf(aL), crownZ};
+        cv::Point3f R = {cx + crownR * 0.55f * cosf(aR), cy + crownR * 0.55f * sinf(aR), crownZ};
+        cv::Point3f T = {cx + crownR * cosf(ang),         cy + crownR * sinf(ang),         tipZ};
+        drawWireframe(frame, {L, R, T}, {{0,1},{0,2},{1,2}},
+                      cameraMatrix, distCoeffs, rvec, tvec, wireCrown, 2);
+    }
+}
+
 // ─── Extension: disguise the chessboard ────────────────────────────────────
 // Projects the outer boundary of the chessboard and fills it with a
 // semi-transparent green-screen colour so the board no longer looks like

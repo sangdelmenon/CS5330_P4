@@ -91,7 +91,8 @@ void CVGUI::setupButtons(
     std::function<void()> onCalibrate,
     std::function<void()> onWrite,
     std::function<void()> onToggleAxes,
-    std::function<void()> onToggleCastle,
+    std::function<void()> onTogglePawn,
+    std::function<void()> onToggleQueen,
     std::function<void()> onToggleOBJ,
     std::function<void()> onToggleDisguise,
     std::function<void()> onToggleORB,
@@ -138,7 +139,8 @@ void CVGUI::setupButtons(
     y += 10;
     y += 16;
     add("3D Axes    (a)", true, BTN_BASE, onToggleAxes);
-    add("Castle     (v)", true, BTN_BASE, onToggleCastle);
+    add("Pawn       (v)", true, BTN_BASE, onTogglePawn);
+    add("Queen      (b)", true, BTN_BASE, onToggleQueen);
     add("OBJ Model  (o)", true, BTN_BASE, onToggleOBJ);
     add("Disguise   (d)", true, BTN_BASE, onToggleDisguise);
 
@@ -168,13 +170,14 @@ void CVGUI::setupButtons(
 
 // ── updateToggles ────────────────────────────────────────────────────────────
 
-void CVGUI::updateToggles(bool axes, bool castle, bool obj, bool disguise,
+void CVGUI::updateToggles(bool axes, bool pawn, bool queen, bool obj, bool disguise,
                            bool orb, bool harris, bool aruco, bool track)
 {
     for (auto &b : buttons_) {
         const std::string &l = b.label;
         if      (l.find("3D Axes")   != std::string::npos) b.toggled = axes;
-        else if (l.find("Castle")    != std::string::npos) b.toggled = castle;
+        else if (l.find("Pawn")      != std::string::npos) b.toggled = pawn;
+        else if (l.find("Queen")     != std::string::npos) b.toggled = queen;
         else if (l.find("OBJ")       != std::string::npos) b.toggled = obj;
         else if (l.find("Disguise")  != std::string::npos) b.toggled = disguise;
         else if (l.find("ORB Feat")  != std::string::npos) b.toggled = orb;
@@ -215,7 +218,7 @@ cv::Mat CVGUI::buildDisplay(const cv::Mat &cameraFrame,
         y += 3 * (BTN_H + BTN_PAD);    // 3 calibration buttons
         y += 10;
         drawSection(display, "AR OVERLAYS", y, ACC_AR);     y += 16;
-        y += 4 * (BTN_H + BTN_PAD);    // 4 AR buttons
+        y += 5 * (BTN_H + BTN_PAD);    // 5 AR buttons
         y += 10;
         drawSection(display, "FEATURES", y, ACC_FEAT);      y += 16;
         y += 2 * (BTN_H + BTN_PAD);    // 2 feature buttons

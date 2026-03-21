@@ -67,7 +67,8 @@ public:
     //   onCalibrate     – run calibration        (needs frame context: use a flag)
     //   onWrite         – write calibration to file
     //   onToggleAxes    – toggle 3D axes
-    //   onToggleCastle  – toggle castle
+    //   onTogglePawn    – toggle chess pawn
+    //   onToggleQueen   – toggle chess queen
     //   onToggleOBJ     – toggle OBJ model
     //   onToggleDisguise– toggle target disguise (extension)
     //   onToggleORB     – toggle ORB feature display
@@ -82,7 +83,8 @@ public:
         std::function<void()> onCalibrate,
         std::function<void()> onWrite,
         std::function<void()> onToggleAxes,
-        std::function<void()> onToggleCastle,
+        std::function<void()> onTogglePawn,
+        std::function<void()> onToggleQueen,
         std::function<void()> onToggleOBJ,
         std::function<void()> onToggleDisguise,
         std::function<void()> onToggleORB,
@@ -95,7 +97,7 @@ public:
     );
 
     // Sync toggle button visuals with current app state.
-    void updateToggles(bool axes, bool castle, bool obj, bool disguise,
+    void updateToggles(bool axes, bool pawn, bool queen, bool obj, bool disguise,
                        bool orb, bool harris, bool aruco, bool track);
 
     // Build the full composite display image.

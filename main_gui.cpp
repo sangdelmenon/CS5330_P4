@@ -87,7 +87,8 @@ int main(int argc, char *argv[])
 
     // ── Application state ──
     bool   showAxes     = false;
-    bool   showCastle   = false;
+    bool   showPawn     = false;
+    bool   showQueen    = false;
     bool   showOBJ      = false;
     bool   showDisguise = false;
     bool   showORB      = false;
@@ -126,9 +127,13 @@ int main(int argc, char *argv[])
             showAxes = !showAxes;
             std::cout << "3D Axes: " << (showAxes ? "ON" : "OFF") << "\n";
         },
-        /*onToggleCastle*/ [&]() {
-            showCastle = !showCastle;
-            std::cout << "Castle: " << (showCastle ? "ON" : "OFF") << "\n";
+        /*onTogglePawn*/   [&]() {
+            showPawn = !showPawn;
+            std::cout << "Chess Pawn: " << (showPawn ? "ON" : "OFF") << "\n";
+        },
+        /*onToggleQueen*/  [&]() {
+            showQueen = !showQueen;
+            std::cout << "Chess Queen: " << (showQueen ? "ON" : "OFF") << "\n";
         },
         /*onToggleOBJ*/    [&]() {
             showOBJ = !showOBJ;
@@ -245,8 +250,11 @@ int main(int argc, char *argv[])
             if (!useAruco)
                 drawOutsideCorners(frame, cameraMatrix, distCoeffs, rvec, tvec, PATTERN_SIZE);
 
-            if (showCastle && !useAruco)
-                drawCastle(frame, cameraMatrix, distCoeffs, rvec, tvec, PATTERN_SIZE);
+            if (showPawn && !useAruco)
+                drawChessPawn(frame, cameraMatrix, distCoeffs, rvec, tvec, PATTERN_SIZE);
+
+            if (showQueen && !useAruco)
+                drawChessQueen(frame, cameraMatrix, distCoeffs, rvec, tvec, PATTERN_SIZE);
 
             if (showOBJ && modelLoaded) {
                 std::vector<cv::Point2f> ip;
@@ -284,8 +292,10 @@ int main(int argc, char *argv[])
                                             oRvec, oTvec);
             if (tracked) {
                 draw3DAxes(frame, cameraMatrix, distCoeffs, oRvec, oTvec);
-                drawCastle(frame, cameraMatrix, distCoeffs, oRvec, oTvec,
-                           cv::Size(5, 4));
+                drawChessPawn(frame, cameraMatrix, distCoeffs, oRvec, oTvec,
+                              cv::Size(5, 4));
+                drawChessQueen(frame, cameraMatrix, distCoeffs, oRvec, oTvec,
+                               cv::Size(5, 4));
             }
             std::string tmsg = tracked
                 ? "ORB Track: " + std::to_string(orbTracker.lastInliers) + " inliers"
@@ -316,7 +326,8 @@ int main(int argc, char *argv[])
             std::vector<std::string> parts;
             if (useAruco)      parts.push_back("aruco");
             if (showAxes)      parts.push_back("axes");
-            if (showCastle)    parts.push_back("castle");
+            if (showPawn)      parts.push_back("pawn");
+            if (showQueen)     parts.push_back("queen");
             if (showOBJ)       parts.push_back("obj");
             if (showORB)       parts.push_back("orb_features");
             if (showHarris)    parts.push_back("harris");
@@ -362,7 +373,7 @@ int main(int argc, char *argv[])
         }
 
         // ── Sync toggle button visuals ──
-        gui.updateToggles(showAxes, showCastle, showOBJ, showDisguise,
+        gui.updateToggles(showAxes, showPawn, showQueen, showOBJ, showDisguise,
                           showORB, showHarris, useAruco, orbTrackMode);
 
         cv::Mat display = gui.buildDisplay(frame, status);
@@ -381,8 +392,10 @@ int main(int argc, char *argv[])
         }
         else if (key == 'a') { showAxes    = !showAxes;
                                 std::cout << "Axes: "    << (showAxes?"ON":"OFF")    << "\n"; }
-        else if (key == 'v') { showCastle  = !showCastle;
-                                std::cout << "Castle: "  << (showCastle?"ON":"OFF")  << "\n"; }
+        else if (key == 'v') { showPawn  = !showPawn;
+                                std::cout << "Chess Pawn: "  << (showPawn?"ON":"OFF")  << "\n"; }
+        else if (key == 'b') { showQueen = !showQueen;
+                                std::cout << "Chess Queen: " << (showQueen?"ON":"OFF") << "\n"; }
         else if (key == 'o') { showOBJ     = !showOBJ;
                                 std::cout << "OBJ: "     << (showOBJ?"ON":"OFF")     << "\n"; }
         else if (key == 'd') { showDisguise= !showDisguise;

@@ -5,18 +5,18 @@
 - **Raj Gupta** | NUID: 002068701 | MSCS - Boston | CS5330 Section 01 (CRN: 38745, Online)
 
 ## Project Description
-This project implements a camera calibration and augmented reality (AR) system in C++ using OpenCV. The system detects a chessboard calibration target, computes the camera's intrinsic matrix and distortion coefficients, then uses the calibrated camera to estimate the board's pose in real time and project virtual 3D objects onto the scene. Two target types are supported: the standard 9×6 chessboard and ArUco markers. The system also supports ORB-based planar AR tracking (Uber Extension 2), which allows any flat surface to serve as an AR target by matching ORB feature descriptors against a captured reference frame.
+For this project we built a camera calibration and augmented reality system in C++ using OpenCV. The program detects a printed chessboard target, figures out the camera's intrinsic parameters and distortion coefficients from multiple saved frames, and then uses that calibration to track the board's position and orientation in real time. Once the pose is known each frame, we render virtual 3D objects that stay locked to the board as the camera moves around. We also added support for ArUco markers as an alternative target, and implemented an ORB feature matching tracker so that any flat textured surface can be used as an AR target without needing a printed chessboard at all.
 
 ## Building the Project
-This project uses CMake and requires OpenCV (with `calib3d`, `objdetect`, `features2d` modules). A C++17 compatible compiler is required.
+The project uses CMake and requires OpenCV with the calib3d, objdetect, and features2d modules, along with a C++17 compiler.
 1. **Navigate to the project directory.**
-2. **Create a build directory and run CMake and make:**
+2. **Create a build directory and compile:**
     ```bash
     mkdir -p cmake-build-debug && cd cmake-build-debug
     cmake ..
     make
     ```
-    This creates two executables inside `cmake-build-debug/`: `Project4` (command-line) and `Project4_GUI` (OpenCV-based GUI).
+    This produces two executables inside `cmake-build-debug/`: `Project4` for the command line and `Project4_GUI` for the graphical interface.
 
 ## Running the Applications
 
@@ -33,33 +33,34 @@ This project uses CMake and requires OpenCV (with `calib3d`, `objdetect`, `featu
 ```bash
 ./cmake-build-debug/Project4_GUI
 ```
-The GUI provides sidebar controls for toggling all AR overlays, saving calibration frames, running calibration, and switching between chessboard and ArUco modes without using key presses.
+The GUI opens an OpenCV window with a sidebar panel containing buttons and sliders for every feature, so you can toggle overlays and run calibration without memorizing key bindings.
 
 ### Key Bindings (Command-Line Application)
 | Key | Action |
 |-----|--------|
 | `s` | Save current frame as calibration image (chessboard mode only) |
-| `c` | Run camera calibration (requires ≥ 5 saved frames) |
-| `w` | Write calibration (camera matrix + distortion) to `calibration.yml` |
+| `c` | Run camera calibration (requires at least 5 saved frames) |
+| `w` | Write calibration data to `calibration.yml` |
 | `a` | Toggle 3D coordinate axes overlay |
-| `v` | Toggle virtual castle overlay |
+| `v` | Toggle chess pawn overlay |
+| `b` | Toggle chess queen overlay |
 | `o` | Toggle OBJ model overlay |
-| `p` | Print current rotation vector and translation vector to terminal |
+| `p` | Print current rotation and translation vectors to terminal |
 | `f` | Toggle ORB feature detection display |
 | `h` | Toggle Harris corner detection display |
-| `m` | Toggle ArUco marker mode (vs chessboard) |
-| `d` | Toggle target disguise (paints over the chessboard) |
-| `r` | Capture current frame as ORB AR tracking reference |
-| `t` | Toggle ORB AR tracking mode (Uber Extension 2) |
+| `m` | Toggle ArUco marker mode |
+| `d` | Toggle target disguise |
+| `r` | Capture current frame as ORB tracking reference |
+| `t` | Toggle ORB AR tracking mode |
 | `x` | Save screenshot |
 | `q` / `ESC` | Quit |
 
 ## Executable Files
 1. **`Project4` (Command-Line Interface)**
-   - Core application run from the terminal. Supports webcam and video/image file input. All calibration and AR operations are controlled via key presses.
+   - The main application that runs in a terminal window. It supports webcam input as well as video and image files. Every calibration and AR feature is controlled through keyboard shortcuts.
 
 2. **`Project4_GUI` (Graphical User Interface)**
-   - Interactive OpenCV window with a sidebar panel. Provides buttons and sliders for all calibration and AR operations — no keyboard shortcuts required.
+   - An OpenCV window with a sidebar panel on the right. All the same features are available through buttons and sliders so no keyboard shortcuts are needed.
 
 ## Methods Overview
 | Task | Implementation |
@@ -68,36 +69,39 @@ The GUI provides sidebar controls for toggling all AR overlays, saving calibrati
 | 2. Calibration frame selection | User presses `s` to store corner set and corresponding 3D world points |
 | 3. Camera calibration | `cv::calibrateCamera` with `CALIB_FIX_ASPECT_RATIO`; save/load via `cv::FileStorage` YAML |
 | 4. Pose estimation | `cv::solvePnP` per frame using stored calibration intrinsics |
-| 5. 3D axes / outside corners | `cv::arrowedLine` (5 squares, labeled tips); `cv::projectPoints` for outer board corners |
-| 6. Virtual castle | Semi-transparent filled faces (60% alpha via `cv::fillConvexPoly` + `cv::addWeighted`) + anti-aliased wireframe; walls 2.5u tall, towers 4.0u, keep 2×2×4u |
-| 7. Robust features | ORB (`cv::ORB`) and Harris corners (`cv::cornerHarris`) displayed live |
-| Ext. Target disguise | Per-square projected quad fill using `cv::fillConvexPoly` + alpha blend |
-| Ext. Multiple ArUco AR | Independent `solvePnP` + `draw3DAxes` on every detected marker |
-| Ext. OBJ model | Custom parser renders `Lowpoly_tree_sample2.obj` (low-poly house) via `cv::line` on detected faces |
-| Ext. ORB AR tracking | `cv::ORB::create(2000)`, `cv::BFMatcher` (Hamming, cross-check, distance ≤ 2.0×), `solvePnPRansac` (reprojErr=5.0, min 12 inliers) |
+| 5. 3D axes / outside corners | `cv::arrowedLine` (5 squares long, labeled tips); `cv::projectPoints` for outer board corners |
+| 6. Virtual chess pieces | Pawn (`v`) and Queen (`b`), each toggled independently. Lathe-style 8-sided octagonal rings with 82% alpha `cv::fillConvexPoly` fill and anti-aliased wireframe edges |
+| 7. Robust features | ORB via `cv::ORB` and Harris corners via `cv::cornerHarris`, both displayed live |
+| Ext. Target disguise | Per-square projected quad fill using `cv::fillConvexPoly` with alpha blending |
+| Ext. Multiple ArUco AR | Independent `solvePnP` and `draw3DAxes` called for every detected marker |
+| Ext. OBJ model | Custom parser that renders `Lowpoly_tree_sample2.obj` using `cv::line` on each face |
+| Ext. ORB AR tracking | `cv::ORB::create(2000)` with `cv::BFMatcher` cross-check matching and `solvePnPRansac` (reprojection error 5.0, minimum 12 inliers) |
 
 ## Project Files
 | File | Description |
 |------|-------------|
-| `main.cpp` | CLI main loop, key handling, AR state machine |
+| `main.cpp` | CLI main loop, key handling, and AR state machine |
 | `main_gui.cpp` | GUI application entry point |
-| `gui_opencv.cpp` / `gui_opencv.h` | OpenCV-based GUI sidebar and rendering |
-| `chessboarddetection.cpp` / `.h` | Chessboard corner detection, ArUco detection, world point generation |
-| `cameracalibration.cpp` / `.h` | `calibrateCamera` wrapper, YAML save/load |
-| `augmentedreality.cpp` / `.h` | 3D axes (`cv::arrowedLine`), outside corners, `drawCastle` (filled faces + wireframe), `drawTargetDisguise` |
-| `featuredetection.cpp` / `.h` | ORB feature detection, Harris corner detection |
-| `orbtracking.cpp` / `.h` | ORB-based planar AR tracker — 2000-keypoint ORB, BFMatcher cross-check, `solvePnPRansac` (reprojErr=5.0, min 12 inliers) |
+| `gui_opencv.cpp` / `gui_opencv.h` | OpenCV sidebar rendering and button logic |
+| `chessboarddetection.cpp` / `.h` | Chessboard corner detection, ArUco detection, and world point generation |
+| `cameracalibration.cpp` / `.h` | Wrapper around `calibrateCamera` with YAML save and load |
+| `augmentedreality.cpp` / `.h` | 3D axes, outside corners, chess pawn and queen rendering with filled faces and wireframe, and target disguise |
+| `featuredetection.cpp` / `.h` | ORB feature detection and Harris corner detection |
+| `orbtracking.cpp` / `.h` | ORB-based planar AR tracker using 2000-keypoint ORB, BFMatcher cross-check, and `solvePnPRansac` |
 | `modelloader.cpp` / `.h` | Wavefront OBJ file parser |
 | `CMakeLists.txt` | Build configuration for both CLI and GUI targets |
 
 ## Extensions
-- **Target Disguise:** Pressing `d` overlays a semi-transparent orange/dark-orange mosaic over the detected chessboard, painting over each square individually (including border squares) using its projected corners, so the calibration target is no longer visible as a checkerboard.
-- **Multiple ArUco Targets:** In ArUco mode (`m`), 3D axes are drawn independently on every detected ArUco marker in the scene, not just the first one.
-- **OBJ Model Loader:** Custom parser renders `Lowpoly_tree_sample2.obj` (low-poly house, 4×3.2 board squares footprint) with anti-aliased face edges and vertex dots.
-- **Uber Extension 2 — ORB AR Tracking:** Press `r` to capture any flat surface as the reference image, then press `t` to activate tracking. ORB features are matched each frame using a BFMatcher with Hamming distance and cross-check filtering. `solvePnPRansac` estimates the camera pose. When tracking succeeds, 3D axes and the castle overlay are drawn on the tracked surface.
+**Target Disguise:** When you press `d` while the chessboard is visible, every square on the board gets painted over with a semi-transparent orange mosaic. The squares are filled individually using their projected 3D corners, so the disguise stays locked to the board and the calibration target is completely hidden while pose estimation keeps running underneath.
+
+**Multiple ArUco Targets:** In ArUco mode, the system finds every marker in the frame at the same time. Each detected marker gets its own independent pose estimate and its own set of 3D axes drawn on top of it, so you can have multiple AR anchors active simultaneously.
+
+**OBJ Model Loader:** We wrote a custom parser that reads a Wavefront OBJ file and projects every face edge onto the board using `cv::line`. The model used is a low-poly house with a footprint of roughly 4 by 3.2 board squares. Each projected vertex also gets a small green dot drawn on it to make the shape easier to read.
+
+**Uber Extension 2 (ORB AR Tracking):** This lets you use any flat textured surface as an AR target. You point the camera at the surface and press `r` to save a reference image. Then press `t` to start tracking. Each frame, ORB features are extracted and matched against the reference using BFMatcher with cross-check. Good matches are used to estimate the camera pose with `solvePnPRansac`, and when at least 12 inliers are found the 3D axes and both chess pieces are drawn anchored to that surface.
 
 ## Time Travel Days
-0 days used.
+1 day used.
 
 ## Videos
 **Panopto Link: https://northeastern.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=e25c0af1-604f-4f13-aee1-b4140037a390**

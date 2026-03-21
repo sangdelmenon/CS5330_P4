@@ -16,10 +16,15 @@ void drawOutsideCorners(cv::Mat &frame, const cv::Mat &cameraMatrix,
                         const cv::Mat &distCoeffs, const cv::Mat &rvec, const cv::Mat &tvec,
                         const cv::Size &patternSize);
 
-// Draw a creative multi-color castle floating above the board.
-void drawCastle(cv::Mat &frame, const cv::Mat &cameraMatrix,
-                const cv::Mat &distCoeffs, const cv::Mat &rvec, const cv::Mat &tvec,
-                const cv::Size &patternSize);
+// Draw a chess pawn floating above the board (left of center).
+void drawChessPawn(cv::Mat &frame, const cv::Mat &cameraMatrix,
+                   const cv::Mat &distCoeffs, const cv::Mat &rvec, const cv::Mat &tvec,
+                   const cv::Size &patternSize);
+
+// Draw a chess queen floating above the board (right of center).
+void drawChessQueen(cv::Mat &frame, const cv::Mat &cameraMatrix,
+                    const cv::Mat &distCoeffs, const cv::Mat &rvec, const cv::Mat &tvec,
+                    const cv::Size &patternSize);
 
 // Helper: project a set of 3D points and draw lines between consecutive pairs.
 void drawWireframe(cv::Mat &frame, const std::vector<cv::Point3f> &pts3d,

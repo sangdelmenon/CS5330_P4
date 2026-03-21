@@ -7,7 +7,8 @@
     c       run calibration (need >= 5 frames)
     w       write calibration to file
     a       toggle 3D axes display
-    v       toggle virtual castle display
+    v       toggle chess pawn display
+    b       toggle chess queen display
     o       toggle OBJ model display
     p       print current pose (rotation + translation)
     f       toggle ORB feature detection
@@ -84,7 +85,8 @@ int main(int argc, char *argv[])
 
     // ── State flags ──
     bool showAxes     = false;
-    bool showCastle   = false;
+    bool showPawn     = false;
+    bool showQueen    = false;
     bool showOBJ      = false;
     bool showORB      = false;
     bool showHarris   = false;
@@ -108,7 +110,8 @@ int main(int argc, char *argv[])
     std::cout << "  c   run calibration\n";
     std::cout << "  w   write calibration to file\n";
     std::cout << "  a   toggle 3D axes\n";
-    std::cout << "  v   toggle virtual castle\n";
+    std::cout << "  v   toggle chess pawn\n";
+    std::cout << "  b   toggle chess queen\n";
     std::cout << "  o   toggle OBJ model\n";
     std::cout << "  p   print pose\n";
     std::cout << "  f   toggle ORB features\n";
@@ -176,8 +179,12 @@ int main(int argc, char *argv[])
                 drawOutsideCorners(frame, cameraMatrix, distCoeffs, rvec, tvec, PATTERN_SIZE);
             }
 
-            if (showCastle && !useAruco) {
-                drawCastle(frame, cameraMatrix, distCoeffs, rvec, tvec, PATTERN_SIZE);
+            if (showPawn && !useAruco) {
+                drawChessPawn(frame, cameraMatrix, distCoeffs, rvec, tvec, PATTERN_SIZE);
+            }
+
+            if (showQueen && !useAruco) {
+                drawChessQueen(frame, cameraMatrix, distCoeffs, rvec, tvec, PATTERN_SIZE);
             }
 
             if (showOBJ && modelLoaded) {
@@ -226,8 +233,10 @@ int main(int argc, char *argv[])
                                             orbRvec, orbTvec);
             if (tracked) {
                 draw3DAxes(frame, cameraMatrix, distCoeffs, orbRvec, orbTvec);
-                drawCastle(frame, cameraMatrix, distCoeffs, orbRvec, orbTvec,
-                           cv::Size(5, 4));   // use a 5x4 grid to fit worldWidth/Height
+                drawChessPawn(frame, cameraMatrix, distCoeffs, orbRvec, orbTvec,
+                              cv::Size(5, 4));
+                drawChessQueen(frame, cameraMatrix, distCoeffs, orbRvec, orbTvec,
+                               cv::Size(5, 4));
             }
             // HUD for tracking state
             std::string trackMsg = tracked
@@ -287,8 +296,12 @@ int main(int argc, char *argv[])
             std::cout << "3D Axes: " << (showAxes ? "ON" : "OFF") << "\n";
         }
         else if (key == 'v') {
-            showCastle = !showCastle;
-            std::cout << "Castle: " << (showCastle ? "ON" : "OFF") << "\n";
+            showPawn = !showPawn;
+            std::cout << "Chess Pawn: " << (showPawn ? "ON" : "OFF") << "\n";
+        }
+        else if (key == 'b') {
+            showQueen = !showQueen;
+            std::cout << "Chess Queen: " << (showQueen ? "ON" : "OFF") << "\n";
         }
         else if (key == 'o') {
             showOBJ = !showOBJ;
@@ -335,7 +348,8 @@ int main(int argc, char *argv[])
             std::vector<std::string> parts;
             if (useAruco)      parts.push_back("aruco");
             if (showAxes)      parts.push_back("axes");
-            if (showCastle)    parts.push_back("castle");
+            if (showPawn)      parts.push_back("pawn");
+            if (showQueen)     parts.push_back("queen");
             if (showOBJ)       parts.push_back("obj");
             if (showORB)       parts.push_back("orb_features");
             if (showHarris)    parts.push_back("harris");
