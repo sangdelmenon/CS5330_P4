@@ -1,7 +1,5 @@
 # Project 4: Calibration and Augmented Reality
 
----
-
 ## Team Members
 
 | Name | NUID | Program | Section |
@@ -9,15 +7,11 @@
 | **Sangeeth Deleep Menon** | 002524579 | MSCS, Boston | CS5330 Section 03 (CRN 40669, Online) |
 | **Raj Gupta** | 002068701 | MSCS, Boston | CS5330 Section 01 (CRN 38745, Online) |
 
----
-
 ## Project Description
 
 For this project we built a complete camera calibration and augmented reality pipeline in C++ using OpenCV. The program detects a printed 9x6 chessboard, collects calibration frames from multiple angles, and computes the camera's intrinsic matrix and distortion coefficients. With that calibration in hand, it tracks the board's 3D pose in every frame and renders virtual objects that stay locked to the board no matter how the camera moves.
 
 The virtual objects are two chess pieces, a pawn and a queen, each individually toggled. We also added support for ArUco markers as an alternative tracking target, and implemented an ORB feature tracker so that any flat textured surface can serve as an AR anchor without a printed board.
-
----
 
 ## Building the Project
 
@@ -36,12 +30,9 @@ This produces two executables inside `cmake-build-debug/`:
 | `Project4` | Command-line application. Supports webcam, video files, and images. |
 | `Project4_GUI` | GUI application with an OpenCV sidebar for buttons and sliders. |
 
----
-
 ## Running the Applications
 
-### Command-Line
-
+**Command-Line:**
 ```bash
 # Webcam (default)
 ./cmake-build-debug/Project4
@@ -50,15 +41,12 @@ This produces two executables inside `cmake-build-debug/`:
 ./cmake-build-debug/Project4 path/to/video.mp4
 ```
 
-### GUI
-
+**GUI:**
 ```bash
 ./cmake-build-debug/Project4_GUI
 ```
 
 The GUI opens an OpenCV window with a sidebar panel on the right. Every feature is accessible through buttons and toggle switches so you never need to memorize key bindings.
-
----
 
 ## Key Bindings (Command-Line)
 
@@ -81,8 +69,6 @@ The GUI opens an OpenCV window with a sidebar panel on the right. Every feature 
 | `x` | Save screenshot |
 | `q` / `ESC` | Quit |
 
----
-
 ## Implementation Summary
 
 | Task | What We Did |
@@ -99,8 +85,6 @@ The GUI opens an OpenCV window with a sidebar panel on the right. Every feature 
 | Ext. OBJ loader | Custom Wavefront OBJ parser rendered with `cv::line` and vertex dots |
 | Ext. ORB tracking | 2000-keypoint ORB, BFMatcher cross-check, `solvePnPRansac` (reprojection error 5.0, min 12 inliers) |
 
----
-
 ## Project Files
 
 | File | Description |
@@ -116,8 +100,6 @@ The GUI opens an OpenCV window with a sidebar panel on the right. Every feature 
 | `modelloader.cpp` / `.h` | Wavefront OBJ file parser |
 | `CMakeLists.txt` | Build configuration for both CLI and GUI targets |
 
----
-
 ## Extensions
 
 **Target Disguise (`d`):** Press `d` while the chessboard is visible and every square gets painted over with a semi-transparent orange mosaic. Each square is filled individually using its projected 3D corners, so the disguise stays locked to the board while pose estimation keeps running underneath.
@@ -128,17 +110,14 @@ The GUI opens an OpenCV window with a sidebar panel on the right. Every feature 
 
 **Uber Extension 2: ORB AR Tracking (`r` / `t`):** This lets you use any flat textured surface as an AR target without a printed board. Point the camera at the surface and press `r` to save a reference image, then press `t` to start tracking. ORB features are matched frame by frame using BFMatcher with cross-check, and `solvePnPRansac` estimates the pose. When at least 12 inliers are found, the 3D axes and both chess pieces appear anchored to that surface.
 
----
-
 ## Time Travel Days
 1 day used.
 
----
-
 ## Demo Video
-**Panopto:** https://northeastern.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=e25c0af1-604f-4f13-aee1-b4140037a390
+**Panopto:** https://northeastern.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=22e00a8a-ba16-4e0e-9005-b415002a04bc
 
----
+## GitHub Repository
+https://github.com/sangdelmenon/CS5330_P4
 
 ## Acknowledgements
 - OpenCV documentation for calibration, pose estimation, ArUco, and ORB references

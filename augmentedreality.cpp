@@ -350,34 +350,39 @@ static std::vector<cv::Point3f> makeRing(float cx, float cy, float z, float r, i
     return ring;
 }
 
-// Fill quads connecting two same-N rings onto an overlay.
+// Fill the convex hull of two rings projected onto the overlay.
+// Using the convex hull avoids painter's-algorithm artifacts: filling each
+// quad individually causes back-facing quads to overwrite front-facing ones
+// at oblique angles, making the piece look inverted or hollow.
 static void fillBand(cv::Mat &overlay,
                      const std::vector<cv::Point3f> &bot,
                      const std::vector<cv::Point3f> &top,
                      const cv::Mat &cm, const cv::Mat &dc,
                      const cv::Mat &rv, const cv::Mat &tv, cv::Scalar col) {
-    int N = (int)bot.size();
-    for (int i = 0; i < N; i++) {
-        int j = (i + 1) % N;
-        std::vector<cv::Point3f> q = {bot[i], bot[j], top[j], top[i]};
-        std::vector<cv::Point2f> q2;
-        cv::projectPoints(q, rv, tv, cm, dc, q2);
-        std::vector<cv::Point> poly;
-        for (auto &p : q2) poly.push_back({cvRound(p.x), cvRound(p.y)});
-        cv::fillConvexPoly(overlay, poly, col);
-    }
+    std::vector<cv::Point3f> all3d;
+    all3d.insert(all3d.end(), bot.begin(), bot.end());
+    all3d.insert(all3d.end(), top.begin(), top.end());
+    std::vector<cv::Point2f> proj;
+    cv::projectPoints(all3d, rv, tv, cm, dc, proj);
+    std::vector<cv::Point> pts;
+    for (auto &p : proj) pts.push_back({cvRound(p.x), cvRound(p.y)});
+    std::vector<cv::Point> hull;
+    cv::convexHull(pts, hull);
+    cv::fillConvexPoly(overlay, hull, col);
 }
 
-// Fill a ring polygon (cap) onto an overlay.
+// Fill a ring polygon (cap) onto an overlay using its convex hull.
 static void fillCap(cv::Mat &overlay,
                     const std::vector<cv::Point3f> &ring,
                     const cv::Mat &cm, const cv::Mat &dc,
                     const cv::Mat &rv, const cv::Mat &tv, cv::Scalar col) {
     std::vector<cv::Point2f> p2;
     cv::projectPoints(ring, rv, tv, cm, dc, p2);
-    std::vector<cv::Point> poly;
-    for (auto &p : p2) poly.push_back({cvRound(p.x), cvRound(p.y)});
-    cv::fillConvexPoly(overlay, poly, col);
+    std::vector<cv::Point> pts;
+    for (auto &p : p2) pts.push_back({cvRound(p.x), cvRound(p.y)});
+    std::vector<cv::Point> hull;
+    cv::convexHull(pts, hull);
+    cv::fillConvexPoly(overlay, hull, col);
 }
 
 // Wireframe: draw top ring, bottom ring, and vertical connectors between two rings.

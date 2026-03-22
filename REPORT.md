@@ -1,15 +1,11 @@
 # Project 4 Report: Calibration and Augmented Reality
 
----
-
 ## Team Members
 
 | Name | NUID | Program | Section |
 |------|------|---------|---------|
 | **Sangeeth Deleep Menon** | 002524579 | MSCS, Boston | CS5330 Section 03 (CRN 40669, Online) |
 | **Raj Gupta** | 002068701 | MSCS, Boston | CS5330 Section 01 (CRN 38745, Online) |
-
----
 
 ## Project Description
 
@@ -31,8 +27,6 @@ The 3D world point set is generated once at startup. Each corner is placed at `(
 
 *Chessboard displayed on a printed sheet. The outside-corner boundary and colored corner overlay confirm all 54 inner corners are detected. Yellow dots mark the four outer boundary corners.*
 
----
-
 ## Task 2: Select Calibration Images
 
 Pressing `s` when the chessboard is detected saves the current set of refined 2D corners into `cornerList` and the corresponding 3D world point set into `pointList`. The same static world point set is used for every saved frame because the board geometry is fixed and only the camera's viewpoint changes. A status message is printed confirming the frame number and corner count.
@@ -42,8 +36,6 @@ The system prevents saving when no pattern is visible or when ArUco mode is acti
 <img src="report_images/detection_0.png" width="480">
 
 *A frame suitable for calibration: the chessboard is fully visible, well-lit, and all 54 corners are detected. The outside-corner boundary confirms the full board is in view. Multiple frames like this were captured at different angles and distances before running calibration.*
-
----
 
 ## Task 3: Calibrate the Camera
 
@@ -64,8 +56,6 @@ RMS Reprojection Error: 0.47 pixels
 
 An RMS error of **0.47 pixels** is well below the 1.0-pixel threshold, which tells us the calibration is accurate. The focal length of roughly **1065 pixels** at 1920x1080 resolution corresponds to a field of view of about 98 degrees, which is consistent with a wide-angle laptop webcam. The principal point at **(968, 544)** sits near the image center as expected.
 
----
-
 ## Task 4: Calculate Current Position of the Camera
 
 With a valid calibration loaded, `cv::solvePnP` is called each frame using the 54 3D world points and their detected 2D positions, outputting a rotation vector (`rvec`) and translation vector (`tvec`). Pressing `p` prints both to the terminal.
@@ -82,8 +72,6 @@ The following 5 readings were captured while moving the camera progressively clo
 
 **Z is the clearest indicator of distance.** As the camera moved closer, Z decreased steadily from 20.57 to 13.68. At 1 unit per board square (roughly 3 cm), Z = 20.57 corresponds to about 62 cm and Z = 13.68 to about 41 cm. X stayed relatively stable around -3.7 to -4.4, reflecting minor lateral drift as the camera was brought forward. Y shifted from -2.42 toward -1.57 as the camera angle tilted slightly. Rotation vectors all have a first component near pi (around 3.04 to 3.08), confirming the camera is looking down at the board's surface throughout.
 
----
-
 ## Task 5: Project Outside Corners and 3D Axes
 
 Two projections are active whenever the board is detected.
@@ -95,8 +83,6 @@ Two projections are active whenever the board is detected.
 <img src="report_images/axes_4.png" width="480">
 
 *All three axes clearly visible from a tilted viewing angle. The blue Z-axis points upward out of the board surface, the red X-axis runs along the top edge, and the green Y-axis runs down the left edge. The arrowheads and labels make the orientation immediately clear.*
-
----
 
 ## Task 6: Create a Virtual Object
 
@@ -117,8 +103,6 @@ Both pieces can be toggled independently so you can show either one, both at onc
 
 *Both chess pieces anchored to the board. The pawn (left, gold wireframe) and queen (right, purple body wireframe with gold crown) are clearly distinguishable. The lathe-style octagonal rings give each piece a recognisable silhouette from any viewing angle.*
 
----
-
 ## Task 7: Detect Robust Features
 
 Two feature detectors are implemented and toggled independently.
@@ -137,11 +121,11 @@ Two feature detectors are implemented and toggled independently.
 
 **How these features could enable AR without a structured target:** Each keypoint has a stable 2D image position that can be matched between frames using its descriptor. By matching descriptors between a reference image of a flat surface and the current frame, you can compute a homography. Decomposing that homography with the calibrated camera matrix gives rotation and translation, which is exactly how Uber Extension 2 works below.
 
----
-
 ## Task 8: Demo Video
 
-**Panopto:** https://northeastern.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=e25c0af1-604f-4f13-aee1-b4140037a390
+**Panopto:** https://northeastern.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=22e00a8a-ba16-4e0e-9005-b415002a04bc
+
+**GitHub:** https://github.com/sangdelmenon/CS5330_P4
 
 ---
 
@@ -155,8 +139,6 @@ When the chessboard is detected and disguise mode is active, the board is covere
 
 *The entire chessboard including outer border squares is covered by the alternating orange mosaic. The yellow outer-corner dots confirm the pose is still being estimated correctly beneath the disguise.*
 
----
-
 ## Extension: ArUco Marker Detection and Multiple ArUco Targets
 
 In ArUco mode (`m`), the detector uses `cv::aruco::ArucoDetector` with the `DICT_6X6_250` dictionary. A green border is drawn around every detected marker. For every additional marker detected beyond the first, an independent `solvePnP` is run and `draw3DAxes` is called so each marker gets its own 3D overlay simultaneously.
@@ -169,8 +151,6 @@ In ArUco mode (`m`), the detector uses `cv::aruco::ArucoDetector` with the `DICT
 
 *3D coordinate axes projected onto the detected ArUco marker. The blue Z-axis points out of the marker plane, with red X and green Y running along the marker edges.*
 
----
-
 ## Extension: OBJ Model Loader (key `o`)
 
 A custom OBJ parser reads `Lowpoly_tree_sample2.obj` and projects it onto the detected board. Vertex positions are scaled to a 4.0 by 3.2 board-square footprint centered on the board. For each frame, all 25 vertices are projected via `cv::projectPoints`, face edges are drawn with anti-aliased `cv::line` at thickness 2 in green, and a small bright-green dot is drawn at each projected vertex with `cv::circle`.
@@ -178,8 +158,6 @@ A custom OBJ parser reads `Lowpoly_tree_sample2.obj` and projects it onto the de
 <img src="report_images/obj_0.png" width="480">
 
 *The low-poly house model rendered on the board with green face edges and vertex dots. The model includes walls, a pyramid roof, chimney, door outline, and front window.*
-
----
 
 ## Uber Extension 2: ORB-Based Planar AR Tracking (keys `r` / `t`)
 
@@ -208,8 +186,6 @@ When tracking succeeds, 3D axes and both chess pieces are drawn anchored to the 
 ## Time Travel Days
 1 day used.
 
----
-
 ## Reflection
 
 This project built up camera calibration and augmented reality from first principles, making the mathematical pipeline very concrete. The most clarifying moment was seeing how `solvePnP` collapses the entire projection model (focal length, principal point, distortion, rotation, and translation) into a single well-defined optimisation problem. Collecting 25 calibration frames and watching the reprojection error converge to **0.47 pixels** made the meaning of each element in the camera matrix intuitive.
@@ -217,8 +193,6 @@ This project built up camera calibration and augmented reality from first princi
 The ORB-based AR tracker was the most technically interesting extension. Matching arbitrary feature points to estimate pose is the fundamental idea behind real-world AR systems like Vuforia and ARCore, so implementing it from OpenCV primitives was genuinely instructive. Building reliable 3D-2D correspondences from 2D-2D feature matches required careful thinking about how reference image pixels map to a world-space plane. The RANSAC step was critical because without it, even a handful of bad matches completely derailed the pose estimate. Tightening thresholds (distance multiplier from 2.5 to 2.0, reprojectionError from 8.0 to 5.0, min inliers from 6 to 12) significantly improved tracking stability.
 
 The chess piece rendering was a valuable exercise in layered compositing. Building each piece from stacked octagonal rings and connecting them with quad faces made the geometry pipeline very tangible. Cloning the frame, filling all faces onto the overlay with `cv::fillConvexPoly`, then blending with `cv::addWeighted` is far more efficient than blending each face individually and produces a clean, semi-transparent result. The disguise extension reinforced how 3D-to-2D projection works at the per-square level: filling each board square individually required projecting four 3D corners per square every frame, making clear just how much computation underlies even simple AR rendering.
-
----
 
 ## Acknowledgements
 
